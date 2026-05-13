@@ -99,15 +99,17 @@ MARKDOWN,
 
         cms()->registerSettingsPage(VeloydSettingsPage::class, 'Veloyd', 'archive-box', 'Koppel Veloyd');
 
-        cms()->registerIntegration([
-            'slug' => 'veloyd',
-            'label' => 'Veloyd',
-            'icon' => 'heroicon-o-truck',
-            'category' => 'shipping',
-            'settings_page' => VeloydSettingsPage::class,
-            'health_check' => fn (?string $siteId = null) => \Dashed\DashedCore\Integrations\IntegrationHealth::fromSettings(['veloyd_api_key'], $siteId, 'API key ontbreekt'),
-            'package' => 'dashed-ecommerce-veloyd',
-        ]);
+        if (method_exists(cms(), 'registerIntegration')) {
+            cms()->registerIntegration([
+                'slug' => 'veloyd',
+                'label' => 'Veloyd',
+                'icon' => 'heroicon-o-truck',
+                'category' => 'shipping',
+                'settings_page' => VeloydSettingsPage::class,
+                'health_check' => fn (?string $siteId = null) => \Dashed\DashedCore\Integrations\IntegrationHealth::fromSettings(['veloyd_api_key'], $siteId, 'API key ontbreekt'),
+                'package' => 'dashed-ecommerce-veloyd',
+            ]);
+        }
 
         ecommerce()->widgets(
             'orders',
