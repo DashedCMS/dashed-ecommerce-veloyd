@@ -17,7 +17,7 @@ use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 /**
  * HTTP-based client voor de Veloyd API (https://app.veloyd.nl/apidoc/).
  * Veloyd heeft geen officiele PHP SDK, daarom praten we direct via de Http
- * facade. Auth: Bearer-token uit Customsetting. Statuscodes:
+ * facade. Auth: `Authorization: Apikey <key>` uit Customsetting. Statuscodes:
  *   1=registered (concept), 2=confirmed (label gedrukt), 3=collected,
  *   4=in transit, 5=manco, 6=available at pickup point, 7=delivered,
  *   8=returned to sender, 9=cancelled, 10=see t&t page.
@@ -57,7 +57,8 @@ class Veloyd
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
             'User-Agent' => self::getUserAgent(),
-        ])->withToken(self::apiKey($siteId));
+            'Authorization' => 'Apikey ' . self::apiKey($siteId),
+        ]);
     }
 
     public static function connectOrderWithCarrier(Order $order)

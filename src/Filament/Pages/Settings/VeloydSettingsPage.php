@@ -15,9 +15,9 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Dashed\DashedCore\Models\Customsetting;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Utilities\Get;
+use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 use Dashed\DashedEcommerceCore\Classes\Countries;
 use Dashed\DashedCore\Traits\HasSettingsPermission;
-use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 
 class VeloydSettingsPage extends Page
 {
