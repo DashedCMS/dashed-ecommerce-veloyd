@@ -74,9 +74,9 @@ class Veloyd
             }
 
             $order->veloydOrders()->create([
-                'carrier' => Customsetting::get('veloyd_default_carrier_' . $order->countryIsoCode, $order->site_id),
+                'carrier' => Customsetting::get('veloyd_default_carrier_' . $order->countryIsoCode, $order->site_id, 'PostNL'),
                 'package_type' => self::getBiggestPackageNeededByIds($order->countryIsoCode, $packageTypeIds, $order->site_id),
-                'delivery_type' => Customsetting::get('veloyd_default_delivery_type_' . $order->countryIsoCode, $order->site_id),
+                'delivery_type' => Customsetting::get('veloyd_default_delivery_type_' . $order->countryIsoCode, $order->site_id, 'Standaard'),
             ]);
 
             $orderLog = new OrderLog();
@@ -221,7 +221,10 @@ class Veloyd
 
             if (! $veloydOrder->carrier) {
                 $countryIsoCode = $veloydOrder->order->countryIsoCode;
-                $defaultCarrier = Customsetting::get('veloyd_default_carrier_' . $countryIsoCode, $veloydOrder->order->site_id);
+                // Gelijk aan de manual-flow fallback in ShowPushToVeloydOrder:
+                // PostNL als default zodat een lege customsetting niet leidt
+                // tot een halfaangemaakte VeloydOrder zonder carrier.
+                $defaultCarrier = Customsetting::get('veloyd_default_carrier_' . $countryIsoCode, $veloydOrder->order->site_id, 'PostNL');
 
                 if ($defaultCarrier) {
                     $order = $veloydOrder->order;
