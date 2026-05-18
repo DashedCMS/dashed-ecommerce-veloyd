@@ -116,6 +116,8 @@ class ShowCreateVeloydReturnLabelOrder extends Component implements HasSchemas, 
                     return null;
                 }
 
+                $labelUrl = Storage::disk('public')->url($result['filePath']);
+
                 if (! empty($data['send_email_to_customer']) && $this->order->email) {
                     try {
                         Mail::to($this->order->email)->send(new ReturnLabelMail(
@@ -132,6 +134,8 @@ class ShowCreateVeloydReturnLabelOrder extends Component implements HasSchemas, 
                             ->body('De mail is verzonden naar ' . $this->order->email . '.')
                             ->success()
                             ->send();
+
+                        return null;
                     } catch (Throwable $e) {
                         Notification::make()
                             ->title('Mail naar klant mislukt')
@@ -139,15 +143,17 @@ class ShowCreateVeloydReturnLabelOrder extends Component implements HasSchemas, 
                             ->warning()
                             ->send();
                     }
-                } else {
-                    Notification::make()
-                        ->title('Retourlabel aangemaakt')
-                        ->body('Het label staat klaar om te downloaden.')
-                        ->success()
-                        ->send();
                 }
 
-                return redirect()->away(Storage::disk('public')->url($result['filePath']));
+                $this->js('window.open(' . json_encode($labelUrl) . ", '_blank');");
+
+                Notification::make()
+                    ->title('Retourlabel aangemaakt')
+                    ->body('Het label is geopend in een nieuw tabblad.')
+                    ->success()
+                    ->send();
+
+                return null;
             });
     }
 }
