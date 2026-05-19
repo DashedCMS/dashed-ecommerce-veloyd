@@ -25,7 +25,7 @@ class CheckVeloydOrders extends Command
 
             foreach ($order->veloydOrders()->whereNotNull('shipment_id')->get() as $veloydOrder) {
                 $shipment = Veloyd::getShipment($veloydOrder->shipment_id, $order->site_id);
-                $statusCode = (int) ($shipment['status'] ?? 0);
+                $statusCode = (int) ($shipment['parcel']['status'] ?? $shipment['status'] ?? 0);
 
                 // Veloyd statussen:
                 // 1=registered, 2=confirmed, 3=collected, 4=in transit,
