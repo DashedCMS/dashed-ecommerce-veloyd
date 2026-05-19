@@ -9,17 +9,17 @@
                                 Retourlabel
                             </x-filament::badge>
                         @endif
-                        @if($veloydOrder->shipment_id && $veloydOrder->label_printed)
+                        @if($veloydOrder->error && ! $veloydOrder->label_printed)
+                            <x-filament::badge color="danger" icon="heroicon-m-x-circle">
+                                Fout bij versturen
+                            </x-filament::badge>
+                        @elseif($veloydOrder->shipment_id && $veloydOrder->label_printed)
                             <x-filament::badge color="success" icon="heroicon-m-check-circle">
                                 Label gedownload
                             </x-filament::badge>
                         @elseif($veloydOrder->shipment_id)
                             <x-filament::badge color="info" icon="heroicon-m-arrow-down-tray">
                                 In wachtrij voor label download
-                            </x-filament::badge>
-                        @elseif($veloydOrder->error)
-                            <x-filament::badge color="danger" icon="heroicon-m-x-circle">
-                                Fout bij versturen
                             </x-filament::badge>
                         @else
                             <x-filament::badge color="warning" icon="heroicon-m-clock">
@@ -39,11 +39,14 @@
                                 <span class="font-medium">Shipment ID:</span>
                                 {{ $veloydOrder->shipment_id }}
                             </p>
-                        @elseif($veloydOrder->error)
-                            <p class="text-danger-600 dark:text-danger-400">
+                        @endif
+
+                        @if($veloydOrder->error)
+                            <p class="whitespace-pre-wrap break-words text-danger-600 dark:text-danger-400">
+                                <span class="font-medium">Foutmelding:</span>
                                 {{ $veloydOrder->error }}
                             </p>
-                        @else
+                        @elseif(! $veloydOrder->shipment_id)
                             <p class="text-gray-600 dark:text-gray-400">
                                 Bestelling is klaargezet voor Veloyd. Download het label in het overzicht of pas hier
                                 de waardes aan.
