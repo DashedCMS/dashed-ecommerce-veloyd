@@ -6,7 +6,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
 use Dashed\DashedEcommerceVeloyd\Jobs\CreateVeloydConceptOrdersJob;
 
@@ -134,7 +134,7 @@ class ShowVeloydOrders extends Component
             ->send();
     }
 
-    public function downloadLabel(int $veloydOrderId): ?BinaryFileResponse
+    public function downloadLabel(int $veloydOrderId): ?Response
     {
         $veloydOrder = $this->order->veloydOrders()
             ->where('id', $veloydOrderId)
