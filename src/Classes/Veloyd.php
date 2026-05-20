@@ -161,7 +161,11 @@ class Veloyd
 
         $options = [];
         if ($isReturn) {
-            $options[] = 'Pick & Return';
+            // Volgens Velocity (leverancier Veloyd): een retourpakket is
+            // een standaard zending met de extra verzendoptie "Retour".
+            // Veloyd swapt zelf de rollen (Ontvanger -> Afzender), dus we
+            // sturen de klantgegevens nog steeds in het address-veld.
+            $options[] = 'Retour';
         }
         if ($veloydOrder->delivery_type && $veloydOrder->delivery_type !== 'Standaard') {
             $options[] = $veloydOrder->delivery_type;
@@ -456,8 +460,10 @@ class Veloyd
     /**
      * Maakt een retourzending aan bij Veloyd voor één order. Veloyd kent
      * geen dedicated /parcel/return endpoint zoals MyParcel; we gebruiken
-     * /parcel/create met de "Pick & Return" optie. Het label wordt direct
-     * opgehaald, opgeslagen en teruggegeven.
+     * /parcel/create met de "Retour" verzendoptie. Klantgegevens blijven
+     * in het address-veld; Veloyd swapt zelf Ontvanger -> Afzender op
+     * basis van de Retour-optie. Het label wordt direct opgehaald,
+     * opgeslagen en teruggegeven.
      */
     public static function createReturnLabelForOrder(VeloydOrder $veloydOrder): array
     {
