@@ -24,6 +24,8 @@ use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
  */
 class Veloyd
 {
+    public const LABEL_BATCH_SIZE = 20;
+
     public static function getUserAgent(): string
     {
         return 'DashedCMS/2.0 PHP/8.2';
@@ -319,6 +321,23 @@ class Veloyd
         ];
     }
 
+    public static function unprintedOrdersForBatch(string $siteId, int $limit = self::LABEL_BATCH_SIZE)
+    {
+        return VeloydOrder::where('label_printed', 0)
+            ->whereNotNull('shipment_id')
+            ->whereHas('order', fn ($q) => $q->where('site_id', $siteId))
+            ->limit($limit)
+            ->get();
+    }
+
+    public static function unprintedCount(string $siteId): int
+    {
+        return VeloydOrder::where('label_printed', 0)
+            ->whereNotNull('shipment_id')
+            ->whereHas('order', fn ($q) => $q->where('site_id', $siteId))
+            ->count();
+    }
+
     /**
      * Bulk-label download. Per shipment_id wordt de /parcel/label endpoint
      * aangeroepen, de base64 PDF gedecodeerd en samengevoegd tot één bestand.
@@ -330,9 +349,7 @@ class Veloyd
     {
         $siteId = Sites::getActive();
 
-        $veloydOrders = VeloydOrder::where('label_printed', 0)
-            ->whereNotNull('shipment_id')
-            ->get();
+        $veloydOrders = self::unprintedOrdersForBatch($siteId);
 
         $orders = [];
         $pdfPaths = [];
@@ -395,6 +412,8 @@ class Veloyd
         return [
             'filePath' => $combinedPath,
             'orders' => $orders,
+            'processed' => count($orders),
+            'hasMore' => self::unprintedCount($siteId) > 0,
         ];
     }
 
