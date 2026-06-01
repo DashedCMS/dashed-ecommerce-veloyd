@@ -133,9 +133,6 @@ MARKDOWN,
             new DashedEcommerceVeloydPlugin(),
         ]);
 
-        cms()->builder('summaryContributors', array_merge(
-            cms()->builder('summaryContributors') ?? [],
-            [\Dashed\DashedEcommerceVeloyd\Services\Summary\VeloydSummaryContributor::class],
-        ));
+        cms()->builder('summaryContributors', [\Dashed\DashedEcommerceVeloyd\Services\Summary\VeloydSummaryContributor::class]);
     }
 }
