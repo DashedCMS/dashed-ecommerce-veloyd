@@ -4,8 +4,8 @@ namespace Dashed\DashedEcommerceVeloyd\Listeners;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Dashed\DashedCore\Models\Customsetting;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 use Dashed\DashedEcommerceCore\Events\Orders\OrderMarkedAsPaidEvent;
 

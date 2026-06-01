@@ -245,6 +245,7 @@ class Veloyd
 
                     $failures[] = [
                         'invoice_id' => $veloydOrder->order->invoice_id ?? $veloydOrder->order_id,
+                        'order_id' => $veloydOrder->order_id,
                         'message' => $veloydOrder->error,
                     ];
                 }
@@ -276,6 +277,7 @@ class Veloyd
 
                 $failures[] = [
                     'invoice_id' => $veloydOrder->order->invoice_id ?? $veloydOrder->order_id,
+                    'order_id' => $veloydOrder->order_id,
                     'message' => $e->getMessage(),
                 ];
 
@@ -289,13 +291,22 @@ class Veloyd
         }
 
         if (! empty($failures)) {
-            $lines = array_map(
-                fn ($failure) => "Bestelling {$failure['invoice_id']}: {$failure['message']}",
-                $failures
-            );
+            $lines = array_map(function ($failure) {
+                $line = "Bestelling {$failure['invoice_id']}: {$failure['message']}";
+
+                $url = $failure['order_id']
+                    ? rescue(fn () => route('filament.dashed.resources.orders.view', ['record' => $failure['order_id']]), null, false)
+                    : null;
+
+                if ($url) {
+                    $line .= '<br><a href="' . $url . '" style="display: inline-block; margin-top: 8px; padding: 8px 16px; background-color: #000000; color: #ffffff; border-radius: 6px; text-decoration: none; font-weight: bold;">Bekijk bestelling</a>';
+                }
+
+                return $line;
+            }, $failures);
 
             Mails::sendNotificationToAdmins(
-                "Veloyd kon de volgende bestellingen niet als concept aanmaken. Corrigeer de gegevens en probeer opnieuw:\n\n" . implode("\n", $lines),
+                'Veloyd kon de volgende bestellingen niet als concept aanmaken. Corrigeer de gegevens en probeer opnieuw:<br><br>' . implode('<br><br>', $lines),
                 count($failures) === 1
                     ? "Veloyd sync mislukt voor bestelling {$failures[0]['invoice_id']}"
                     : 'Veloyd sync mislukt voor ' . count($failures) . ' bestellingen'
