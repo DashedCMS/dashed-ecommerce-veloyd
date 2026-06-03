@@ -6,7 +6,6 @@ use Filament\Panel;
 use Filament\Actions\Action;
 use Filament\Contracts\Plugin;
 use Filament\Forms\Components\Select;
-use Illuminate\Support\Facades\Artisan;
 use Filament\Notifications\Notification;
 use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
@@ -67,33 +66,6 @@ class DashedEcommerceVeloydPlugin implements Plugin
             );
         }
 
-        // Handmatig de periodieke Veloyd-status-sync triggeren voor alle
-        // niet-afgehandelde bestellingen. De command draait normaal elk
-        // kwartier via de scheduler; deze knop dispatcht hem direct naar
-        // de queue zodat de admin niet hoeft te wachten op de volgende run.
-        ecommerce()->buttonActions(
-            'orders',
-            array_merge(ecommerce()->buttonActions('orders'), [
-                Action::make('syncVeloydStatuses')
-                    ->iconButton()
-                    ->color('gray')
-                    ->icon('heroicon-o-arrow-path')
-                    ->label('Verzendstatussen ophalen bij Veloyd')
-                    ->tooltip('Verzendstatussen ophalen bij Veloyd')
-                    ->requiresConfirmation()
-                    ->modalHeading('Verzendstatussen synchroniseren')
-                    ->modalDescription('Hiermee wordt voor elke niet-afgehandelde bestelling de huidige status bij Veloyd opgehaald en bijgewerkt. De sync draait in de achtergrond.')
-                    ->modalSubmitActionLabel('Sync starten')
-                    ->action(function () {
-                        Artisan::queue('dashed:check-veloyd-orders')->onQueue('ecommerce');
-
-                        Notification::make()
-                            ->title('Sync gestart')
-                            ->body('De verzendstatussen worden in de achtergrond opgehaald bij Veloyd.')
-                            ->success()
-                            ->send();
-                    }),
-            ])
-        );
+        ecommerce()->registerShippingStatusCommand('dashed:check-veloyd-orders');
     }
 }
