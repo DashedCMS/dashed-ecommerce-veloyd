@@ -64,7 +64,7 @@
                         };
                     @endphp
 
-                    @if($veloydOrder->label_pdf_path)
+                    @if($veloydOrder->label_pdf_path && ! $veloydOrder->is_return)
                         <x-filament::icon-button
                             color="success"
                             icon="heroicon-m-arrow-down-tray"

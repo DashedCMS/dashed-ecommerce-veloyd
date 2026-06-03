@@ -150,6 +150,16 @@ class ShowVeloydOrders extends Component
             return null;
         }
 
+        if ($veloydOrder->is_return) {
+            Notification::make()
+                ->title('Retourlabel niet downloadbaar in de lijst')
+                ->body('Download een retourlabel via de knop "Download retourlabel" of mail het naar de klant.')
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
         if (! Storage::disk('public')->exists($veloydOrder->label_pdf_path)) {
             Notification::make()
                 ->title('Label-bestand ontbreekt')
