@@ -1,31 +1,4 @@
 <div class="space-y-3">
-    @php
-        $nonReturnLabels = $order->veloydOrders->where('is_return', false);
-        $hasDownloadableLabels = $nonReturnLabels->filter(fn ($v) => $v->label_pdf_path)->isNotEmpty();
-    @endphp
-
-    @if($nonReturnLabels->isNotEmpty())
-        <div class="flex flex-wrap gap-2">
-            <x-filament::button
-                color="warning"
-                icon="heroicon-m-arrow-path"
-                wire:click="requeueAll"
-            >
-                Opnieuw in wachtrij
-            </x-filament::button>
-
-            @if($hasDownloadableLabels)
-                <x-filament::button
-                    color="success"
-                    icon="heroicon-m-arrow-down-tray"
-                    wire:click="downloadLabels"
-                >
-                    Download labels
-                </x-filament::button>
-            @endif
-        </div>
-    @endif
-
     @forelse($order->veloydOrders as $veloydOrder)
         <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-4">
@@ -83,6 +56,34 @@
                 </div>
 
                 <div class="flex items-center gap-1">
+                    @php
+                        $requeueTooltip = match(true) {
+                            $veloydOrder->shipment_id && $veloydOrder->label_printed => 'Opnieuw in wachtrij zetten',
+                            $veloydOrder->shipment_id => 'Staat al in wachtrij',
+                            default => 'Concept nu aanmaken bij Veloyd',
+                        };
+                    @endphp
+
+                    @if($veloydOrder->label_pdf_path && ! $veloydOrder->is_return)
+                        <x-filament::icon-button
+                            color="success"
+                            icon="heroicon-m-arrow-down-tray"
+                            size="sm"
+                            tooltip="Download label PDF"
+                            wire:click="downloadLabel({{ $veloydOrder->id }})"
+                        />
+                    @endif
+
+                    @unless($veloydOrder->is_return)
+                        <x-filament::icon-button
+                            color="warning"
+                            icon="heroicon-m-arrow-path"
+                            size="sm"
+                            :tooltip="$requeueTooltip"
+                            wire:click="requeueVeloydOrder({{ $veloydOrder->id }})"
+                        />
+                    @endunless
+
                     <x-filament::icon-button
                         color="danger"
                         icon="heroicon-m-trash"
