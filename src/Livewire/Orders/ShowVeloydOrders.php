@@ -3,6 +3,7 @@
 namespace Dashed\DashedEcommerceVeloyd\Livewire\Orders;
 
 use Livewire\Component;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
@@ -182,6 +183,43 @@ class ShowVeloydOrders extends Component
             . '.pdf';
 
         return Storage::disk('public')->download($veloydOrder->label_pdf_path, $filename);
+    }
+
+    public function downloadableLabels(): Collection
+    {
+        return $this->order->veloydOrders()
+            ->where('is_return', false)
+            ->whereNotNull('label_pdf_path')
+            ->get();
+    }
+
+    public function requeueAllLabels(): array
+    {
+        $requeued = 0;
+        $concept = 0;
+        $queued = 0;
+
+        foreach ($this->order->veloydOrders()->where('is_return', false)->get() as $veloydOrder) {
+            if (! $veloydOrder->shipment_id) {
+                $veloydOrder->error = null;
+                $veloydOrder->save();
+                $concept++;
+
+                continue;
+            }
+
+            if ($veloydOrder->label_printed) {
+                $veloydOrder->label_printed = false;
+                $veloydOrder->save();
+                $requeued++;
+
+                continue;
+            }
+
+            $queued++;
+        }
+
+        return ['requeued' => $requeued, 'concept' => $concept, 'queued' => $queued];
     }
 
     public function render()
