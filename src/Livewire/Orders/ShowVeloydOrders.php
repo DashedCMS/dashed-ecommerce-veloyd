@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
 use Symfony\Component\HttpFoundation\Response;
 use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
+use LynX39\LaraPdfMerger\Facades\PdfMerger;
 use Dashed\DashedEcommerceVeloyd\Jobs\CreateVeloydConceptOrdersJob;
 
 class ShowVeloydOrders extends Component
@@ -37,60 +38,6 @@ class ShowVeloydOrders extends Component
         $this->veloydOrderIdToDelete = null;
 
         $this->dispatch('close-modal', id: 'delete-veloyd-order-modal');
-    }
-
-    public function requeueVeloydOrder(int $veloydOrderId): void
-    {
-        $veloydOrder = $this->order->veloydOrders()
-            ->where('id', $veloydOrderId)
-            ->first();
-
-        if (! $veloydOrder) {
-            Notification::make()
-                ->title('Veloyd order niet gevonden')
-                ->danger()
-                ->send();
-
-            return;
-        }
-
-        if (! $veloydOrder->shipment_id) {
-            $veloydOrder->error = null;
-            $veloydOrder->save();
-
-            CreateVeloydConceptOrdersJob::dispatch()->onQueue('ecommerce');
-
-            $this->order->refresh();
-
-            Notification::make()
-                ->title('Concept wordt aangemaakt bij Veloyd')
-                ->body('De job is gestart - ververs deze pagina na een paar seconden om de status bij te werken.')
-                ->success()
-                ->send();
-
-            return;
-        }
-
-        if (! $veloydOrder->label_printed) {
-            Notification::make()
-                ->title('Label staat al in de wachtrij')
-                ->body('Dit label wordt bij de volgende download in het overzicht meegenomen.')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
-        $veloydOrder->label_printed = false;
-        $veloydOrder->save();
-
-        $this->order->refresh();
-
-        Notification::make()
-            ->title('Label opnieuw in de wachtrij gezet')
-            ->body('Het label wordt bij de volgende download in het overzicht opnieuw meegedownload.')
-            ->success()
-            ->send();
     }
 
     public function deleteVeloydOrder(): void
@@ -135,54 +82,73 @@ class ShowVeloydOrders extends Component
             ->send();
     }
 
-    public function downloadLabel(int $veloydOrderId): ?Response
+    public function downloadLabels(): ?Response
     {
-        $veloydOrder = $this->order->veloydOrders()
-            ->where('id', $veloydOrderId)
-            ->first();
+        $labels = $this->downloadableLabels()
+            ->filter(fn ($veloydOrder) => Storage::disk('public')->exists($veloydOrder->label_pdf_path));
 
-        if (! $veloydOrder || ! $veloydOrder->label_pdf_path) {
+        if ($labels->isEmpty()) {
             Notification::make()
-                ->title('Label niet gevonden')
-                ->body('Er staat geen PDF klaar voor dit label.')
+                ->title('Geen labels om te downloaden')
+                ->body('Er staan geen verzendlabels klaar voor deze bestelling.')
                 ->danger()
                 ->send();
 
             return null;
         }
 
-        if ($veloydOrder->is_return) {
-            Notification::make()
-                ->title('Retourlabel niet downloadbaar in de lijst')
-                ->body('Download een retourlabel via de knop "Download retourlabel" of mail het naar de klant.')
-                ->danger()
-                ->send();
-
-            return null;
+        $merger = PdfMerger::init();
+        foreach ($labels as $veloydOrder) {
+            $merger->addPDF(Storage::disk('public')->path($veloydOrder->label_pdf_path), 'all');
         }
+        $merger->merge();
 
-        if (! Storage::disk('public')->exists($veloydOrder->label_pdf_path)) {
-            Notification::make()
-                ->title('Label-bestand ontbreekt')
-                ->body('Het PDF-bestand is niet meer aanwezig op de server. Maak het label opnieuw aan.')
-                ->danger()
-                ->send();
+        $outPath = 'dashed/tmp-exports/veloyd-labels-' . $this->order->id . '-' . $this->order->hash . '.pdf';
+        Storage::disk('public')->put($outPath, '');
+        $merger->save(Storage::disk('public')->path($outPath));
 
-            return null;
-        }
-
-        if (! $veloydOrder->label_printed) {
-            $veloydOrder->label_printed = true;
-            $veloydOrder->save();
+        foreach ($labels as $veloydOrder) {
+            if (! $veloydOrder->label_printed) {
+                $veloydOrder->label_printed = true;
+                $veloydOrder->save();
+            }
         }
 
         $this->order->refresh();
 
-        $filename = ($veloydOrder->is_return ? 'retour-label-' : 'label-')
-            . ($veloydOrder->order->invoice_id ?? $veloydOrder->id)
-            . '.pdf';
+        return Storage::disk('public')->download(
+            $outPath,
+            'labels-' . ($this->order->invoice_id ?? $this->order->id) . '.pdf'
+        );
+    }
 
-        return Storage::disk('public')->download($veloydOrder->label_pdf_path, $filename);
+    public function requeueAll(): void
+    {
+        $counts = $this->requeueAllLabels();
+
+        if ($counts['concept'] > 0) {
+            CreateVeloydConceptOrdersJob::dispatch()->onQueue('ecommerce');
+        }
+
+        $this->order->refresh();
+
+        if (($counts['requeued'] + $counts['concept'] + $counts['queued']) === 0) {
+            Notification::make()
+                ->title('Geen labels om opnieuw in de wachtrij te zetten')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Labels opnieuw in de wachtrij gezet')
+            ->body($counts['requeued'] . ' label(s) opnieuw klaargezet voor download'
+                . ($counts['concept'] > 0 ? ', ' . $counts['concept'] . ' concept(en) worden aangemaakt' : '')
+                . ($counts['queued'] > 0 ? ', ' . $counts['queued'] . ' stond(en) al in de wachtrij' : '')
+                . '.')
+            ->success()
+            ->send();
     }
 
     public function downloadableLabels(): Collection
