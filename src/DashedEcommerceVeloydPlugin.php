@@ -11,6 +11,7 @@ use Filament\Notifications\Notification;
 use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 use Dashed\DashedEcommerceVeloyd\Jobs\CreateShippingLabelsJob;
+use Dashed\DashedEcommerceVeloyd\Support\VeloydShippingProvider;
 use Dashed\DashedEcommerceVeloyd\Filament\Pages\Settings\VeloydSettingsPage;
 
 class DashedEcommerceVeloydPlugin implements Plugin
@@ -43,6 +44,8 @@ class DashedEcommerceVeloydPlugin implements Plugin
         cms()->builder('builderBlockClasses', [
             self::class => 'builderBlocks',
         ]);
+
+        ecommerce()->registerShippingLabelProvider(new VeloydShippingProvider());
 
         if (VeloydOrder::where('label_printed', 0)->whereNotNull('shipment_id')->count()) {
             ecommerce()->buttonActions(
