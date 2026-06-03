@@ -11,6 +11,8 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Textarea;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
+use Symfony\Component\HttpFoundation\Response;
+use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Contracts\HasSchemas;
 use Dashed\DashedCore\Models\Customsetting;
@@ -35,9 +37,52 @@ class ShowCreateVeloydReturnLabelOrder extends Component implements HasSchemas, 
         $this->order = $order;
     }
 
+    public function existingReturnLabel(): ?VeloydOrder
+    {
+        return $this->order->veloydOrders()
+            ->where('is_return', true)
+            ->whereNotNull('label_pdf_path')
+            ->latest()
+            ->first();
+    }
+
+    public function downloadReturnLabel(): ?Response
+    {
+        $veloydOrder = $this->existingReturnLabel();
+
+        if (! $veloydOrder) {
+            Notification::make()
+                ->title('Geen retourlabel gevonden')
+                ->body('Maak eerst een retourlabel aan.')
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        if (! Storage::disk('public')->exists($veloydOrder->label_pdf_path)) {
+            Notification::make()
+                ->title('Label-bestand ontbreekt')
+                ->body('Het PDF-bestand is niet meer aanwezig op de server. Maak het retourlabel opnieuw aan.')
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        if (! $veloydOrder->label_printed) {
+            $veloydOrder->label_printed = true;
+            $veloydOrder->save();
+        }
+
+        $filename = 'retour-label-' . ($veloydOrder->order->invoice_id ?? $veloydOrder->id) . '.pdf';
+
+        return Storage::disk('public')->download($veloydOrder->label_pdf_path, $filename);
+    }
+
     public function render()
     {
-        return view('dashed-ecommerce-core::orders.components.plain-action');
+        return view('dashed-ecommerce-veloyd::orders.components.create-return-label');
     }
 
     public function action(): Action
