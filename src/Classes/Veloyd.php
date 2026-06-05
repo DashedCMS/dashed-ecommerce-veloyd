@@ -324,6 +324,7 @@ class Veloyd
     public static function unprintedOrdersForBatch(string $siteId, int $limit = self::LABEL_BATCH_SIZE)
     {
         return VeloydOrder::where('label_printed', 0)
+            ->where('is_return', false)
             ->whereNotNull('shipment_id')
             ->whereHas('order', fn ($q) => $q->where('site_id', $siteId))
             ->limit($limit)
@@ -333,6 +334,7 @@ class Veloyd
     public static function unprintedCount(string $siteId): int
     {
         return VeloydOrder::where('label_printed', 0)
+            ->where('is_return', false)
             ->whereNotNull('shipment_id')
             ->whereHas('order', fn ($q) => $q->where('site_id', $siteId))
             ->count();
