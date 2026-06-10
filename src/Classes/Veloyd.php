@@ -560,6 +560,38 @@ class Veloyd
         return (array) $response->json();
     }
 
+    /**
+     * Haalt het label-PDF voor één Veloyd-order on-demand op (o.b.v. shipment_id)
+     * en slaat het op de public disk op + zet label_pdf_path. Idempotent. Geeft
+     * het pad terug, of null als er geen shipment is.
+     */
+    public static function downloadLabelForOrder(VeloydOrder $veloydOrder): ?string
+    {
+        if ($veloydOrder->label_pdf_path && Storage::disk('public')->exists($veloydOrder->label_pdf_path)) {
+            return $veloydOrder->label_pdf_path;
+        }
+
+        if (! $veloydOrder->shipment_id) {
+            return null;
+        }
+
+        $labelData = self::fetchLabel($veloydOrder);
+        $pdf = base64_decode($labelData['label'] ?? '');
+        if (! $pdf) {
+            throw new Exception('Leeg label-PDF terug van Veloyd voor shipment ' . $veloydOrder->shipment_id);
+        }
+
+        $filePath = 'dashed/orders/veloyd/label-'
+            . ($veloydOrder->order->invoice_id ?: $veloydOrder->order_id)
+            . '-' . $veloydOrder->id . '.pdf';
+        Storage::disk('public')->put($filePath, $pdf);
+
+        $veloydOrder->label_pdf_path = $filePath;
+        $veloydOrder->save();
+
+        return $filePath;
+    }
+
     public static function getShipment(int|string $shipmentId, string $siteId): array
     {
         $response = self::client($siteId)
