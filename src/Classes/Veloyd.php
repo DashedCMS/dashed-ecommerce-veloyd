@@ -424,6 +424,36 @@ class Veloyd
      * het label PDF op. PDF wordt opgeslagen in de public disk en het pad
      * teruggegeven samen met track-en-trace data.
      */
+    /**
+     * Maakt een verzendlabel aan voor een order met de (per-land) standaard
+     * carrier/pakkettype/verzendtype, en haalt het label op. Voor de mobiele app:
+     * één knop "Verzendlabel aanmaken" zonder formulier.
+     */
+    public static function createLabelForOrder(Order $order): array
+    {
+        $country = $order->countryIsoCode;
+
+        $attrs = [
+            'carrier' => Customsetting::get("veloyd_default_carrier_{$country}", null, 'PostNL'),
+            'package_type' => Customsetting::get("veloyd_default_package_type_{$country}", null, 1),
+            'delivery_type' => Customsetting::get("veloyd_default_delivery_type_{$country}", null, 'Standaard'),
+            'is_return' => false,
+        ];
+
+        $veloydOrder = $order->veloydOrders()
+            ->where('label_printed', 0)
+            ->where('is_return', false)
+            ->first();
+
+        if ($veloydOrder) {
+            $veloydOrder->update($attrs);
+        } else {
+            $veloydOrder = $order->veloydOrders()->create($attrs);
+        }
+
+        return self::createConceptAndLabelForOrder($veloydOrder);
+    }
+
     public static function createConceptAndLabelForOrder(VeloydOrder $veloydOrder): array
     {
         if (! $veloydOrder->carrier) {
