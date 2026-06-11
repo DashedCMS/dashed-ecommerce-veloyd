@@ -294,7 +294,7 @@ class Veloyd
 
         if (! empty($failures)) {
             $lines = array_map(function ($failure) {
-                $line = "Bestelling {$failure['invoice_id']}: {$failure['message']}";
+                $line = 'Bestelling ' . e($failure['invoice_id']) . ': ' . e($failure['message']);
 
                 $url = $failure['order_id']
                     ? rescue(fn () => route('filament.dashed.resources.orders.view', ['record' => $failure['order_id']]), null, false)
@@ -429,14 +429,14 @@ class Veloyd
      * carrier/pakkettype/verzendtype, en haalt het label op. Voor de mobiele app:
      * één knop "Verzendlabel aanmaken" zonder formulier.
      */
-    public static function createLabelForOrder(Order $order): array
+    public static function createLabelForOrder(Order $order, array $overrides = []): array
     {
         $country = $order->countryIsoCode;
 
         $attrs = [
-            'carrier' => Customsetting::get("veloyd_default_carrier_{$country}", null, 'PostNL'),
-            'package_type' => Customsetting::get("veloyd_default_package_type_{$country}", null, 1),
-            'delivery_type' => Customsetting::get("veloyd_default_delivery_type_{$country}", null, 'Standaard'),
+            'carrier' => $overrides['carrier'] ?? Customsetting::get("veloyd_default_carrier_{$country}", null, 'PostNL'),
+            'package_type' => $overrides['package_type'] ?? Customsetting::get("veloyd_default_package_type_{$country}", null, 1),
+            'delivery_type' => $overrides['delivery_type'] ?? Customsetting::get("veloyd_default_delivery_type_{$country}", null, 'Standaard'),
             'is_return' => false,
         ];
 
