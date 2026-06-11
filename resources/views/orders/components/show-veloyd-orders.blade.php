@@ -26,6 +26,19 @@
                                 Klaargezet
                             </x-filament::badge>
                         @endif
+                        @php
+                            $ds = [
+                                'shipped' => ['Verzonden', 'info'],
+                                'in_transit' => ['Onderweg', 'warning'],
+                                'pickup' => ['Klaar voor afhalen', 'warning'],
+                                'delivered' => ['Geleverd', 'success'],
+                                'returned' => ['Retour', 'warning'],
+                                'cancelled' => ['Geannuleerd', 'danger'],
+                            ][$veloydOrder->status] ?? null;
+                        @endphp
+                        @if($ds)
+                            <x-filament::badge :color="$ds[1]" icon="heroicon-m-truck">{{ $ds[0] }}</x-filament::badge>
+                        @endif
                         @if($veloydOrder->is_return && $veloydOrder->is_label_email_sent)
                             <x-filament::badge color="success" icon="heroicon-m-envelope">
                                 Mail verstuurd

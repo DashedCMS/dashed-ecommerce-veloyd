@@ -33,6 +33,7 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
             $schedule = app(Schedule::class);
             $schedule->command(CreateVeloydConceptOrders::class)->everyMinute()->withoutOverlapping();
             $schedule->command(CheckVeloydOrders::class)->everyFifteenMinutes()->withoutOverlapping();
+            $schedule->command(\Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class)->hourly()->withoutOverlapping();
         });
 
         cms()->registerSettingsDocs(
@@ -94,6 +95,7 @@ MARKDOWN,
             ->hasCommands([
                 CheckVeloydOrders::class,
                 CreateVeloydConceptOrders::class,
+                \Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class,
             ])
             ->hasViews();
 

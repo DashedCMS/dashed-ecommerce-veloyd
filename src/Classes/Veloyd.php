@@ -777,4 +777,61 @@ class Veloyd
         // hun individuele label_pdf_path nog steeds in de admin per order.
         return $paths[0];
     }
+
+    /** Veloyd-statuscode (1-10) → onze gedeelde statussleutel. */
+    public static function normalizeStatus(int $code): ?string
+    {
+        return match ($code) {
+            1 => 'concept',
+            2 => 'printed',
+            3 => 'shipped',
+            4, 10 => 'in_transit',
+            5 => 'error',
+            6 => 'pickup',
+            7 => 'delivered',
+            8 => 'returned',
+            9 => 'cancelled',
+            default => null,
+        };
+    }
+
+    /**
+     * Haal per nog-niet-afgeronde zending de live status op bij Veloyd (via de al
+     * bewezen getShipment()-call, ook gebruikt door CheckVeloydOrders) en sla 'm
+     * genormaliseerd op. Error-veilig: faalt per zending stil.
+     */
+    public static function syncShipmentStatuses(): int
+    {
+        $updated = 0;
+        $orders = VeloydOrder::query()
+            ->whereNotNull('shipment_id')
+            ->where(function ($q): void {
+                $q->whereNull('status')->orWhereNotIn('status', ['delivered', 'cancelled', 'returned']);
+            })
+            ->limit(200)->get();
+
+        foreach ($orders as $vo) {
+            try {
+                if (! $vo->order) {
+                    continue;
+                }
+                $shipment = self::getShipment($vo->shipment_id, $vo->order->site_id);
+                $code = $shipment['parcel']['status'] ?? $shipment['status'] ?? null;
+                if ($code === null) {
+                    continue;
+                }
+                $normalized = self::normalizeStatus((int) $code);
+                if ($normalized && $vo->status !== $normalized) {
+                    $vo->status = $normalized;
+                    $vo->status_updated_at = now();
+                    $vo->save();
+                    $updated++;
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $updated;
+    }
 }
