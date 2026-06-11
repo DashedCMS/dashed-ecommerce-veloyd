@@ -369,7 +369,7 @@ class Veloyd
                     throw new Exception('Lege PDF terug van Veloyd voor shipment ' . $veloydOrder->shipment_id);
                 }
 
-                $filePath = 'dashed/orders/veloyd/label-' . $veloydOrder->order->invoice_id . '-' . $veloydOrder->id . '.pdf';
+                $filePath = 'dashed/orders/veloyd/label-' . $veloydOrder->order->invoice_id . '-' . $veloydOrder->id . '-' . \Illuminate\Support\Str::random(40) . '.pdf';
                 Storage::disk('public')->put($filePath, $pdf);
                 $pdfPaths[] = $filePath;
 
@@ -503,7 +503,7 @@ class Veloyd
             );
         }
 
-        $filePath = 'dashed/orders/veloyd/label-' . $veloydOrder->order->invoice_id . '-' . time() . '.pdf';
+        $filePath = 'dashed/orders/veloyd/label-' . $veloydOrder->order->invoice_id . '-' . \Illuminate\Support\Str::random(40) . '.pdf';
         Storage::disk('public')->put($filePath, $pdf);
 
         // label_printed bewust 0 laten: pas wanneer de admin op de
@@ -565,7 +565,7 @@ class Veloyd
             ]];
         }
 
-        $filePath = 'dashed/orders/veloyd/return-label-' . $veloydOrder->order->invoice_id . '-' . time() . '.pdf';
+        $filePath = 'dashed/orders/veloyd/return-label-' . $veloydOrder->order->invoice_id . '-' . \Illuminate\Support\Str::random(40) . '.pdf';
         Storage::disk('public')->put($filePath, $pdf);
 
         $veloydOrder->label_pdf_path = $filePath;
@@ -613,7 +613,7 @@ class Veloyd
 
         $filePath = 'dashed/orders/veloyd/label-'
             . ($veloydOrder->order->invoice_id ?: $veloydOrder->order_id)
-            . '-' . $veloydOrder->id . '.pdf';
+            . '-' . $veloydOrder->id . '-' . \Illuminate\Support\Str::random(40) . '.pdf';
         Storage::disk('public')->put($filePath, $pdf);
 
         $veloydOrder->label_pdf_path = $filePath;
