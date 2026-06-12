@@ -816,27 +816,61 @@ class Veloyd
             ->limit(200)->get();
 
         foreach ($orders as $vo) {
-            try {
-                if (! $vo->order) {
-                    continue;
-                }
-                $shipment = self::getShipment($vo->shipment_id, $vo->order->site_id);
-                $code = $shipment['parcel']['status'] ?? $shipment['status'] ?? null;
-                if ($code === null) {
-                    continue;
-                }
-                $normalized = self::normalizeStatus((int) $code);
-                if ($normalized && $vo->status !== $normalized) {
-                    $vo->status = $normalized;
-                    $vo->status_updated_at = now();
-                    $vo->save();
-                    $updated++;
-                }
-            } catch (\Throwable $e) {
-                report($e);
-            }
+            $updated += self::syncShipmentStatus($vo);
         }
 
         return $updated;
+    }
+
+    /**
+     * Per-order variant van syncShipmentStatuses(): werkt enkel de labelstatussen
+     * van de gegeven order bij. Geeft het aantal gewijzigde labels terug.
+     */
+    public static function syncShipmentStatusesForOrder(Order $order): int
+    {
+        $updated = 0;
+        $shipments = VeloydOrder::query()
+            ->where('order_id', $order->id)
+            ->whereNotNull('shipment_id')
+            ->where(function ($q): void {
+                $q->whereNull('status')->orWhereNotIn('status', ['delivered', 'cancelled', 'returned']);
+            })
+            ->get();
+
+        foreach ($shipments as $vo) {
+            $updated += self::syncShipmentStatus($vo);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Haalt de live status van één Veloyd-zending op en slaat 'm genormaliseerd
+     * op. Geeft 1 terug bij een statuswijziging, anders 0. Error-veilig per zending.
+     */
+    private static function syncShipmentStatus(VeloydOrder $vo): int
+    {
+        try {
+            if (! $vo->order) {
+                return 0;
+            }
+            $shipment = self::getShipment($vo->shipment_id, $vo->order->site_id);
+            $code = $shipment['parcel']['status'] ?? $shipment['status'] ?? null;
+            if ($code === null) {
+                return 0;
+            }
+            $normalized = self::normalizeStatus((int) $code);
+            if ($normalized && $vo->status !== $normalized) {
+                $vo->status = $normalized;
+                $vo->status_updated_at = now();
+                $vo->save();
+
+                return 1;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return 0;
     }
 }

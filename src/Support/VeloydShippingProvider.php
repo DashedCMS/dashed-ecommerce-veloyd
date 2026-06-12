@@ -3,6 +3,8 @@
 namespace Dashed\DashedEcommerceVeloyd\Support;
 
 use Dashed\DashedCore\Classes\Sites;
+use Dashed\DashedEcommerceCore\Models\Order;
+use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 use Dashed\DashedEcommerceCore\Contracts\ShippingLabelProvider;
 
@@ -43,5 +45,17 @@ class VeloydShippingProvider implements ShippingLabelProvider
             $order->error = null;
             $order->save();
         }
+    }
+
+    public function syncOrderStatuses(Order $order): int
+    {
+        return Veloyd::syncShipmentStatusesForOrder($order);
+    }
+
+    public function hasLabelsForOrder(Order $order): bool
+    {
+        return VeloydOrder::where('order_id', $order->id)
+            ->whereNotNull('shipment_id')
+            ->exists();
     }
 }
