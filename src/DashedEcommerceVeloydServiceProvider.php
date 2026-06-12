@@ -29,6 +29,11 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
             return $model->hasMany(VeloydOrder::class);
         });
 
+        \Illuminate\Support\Facades\Event::listen(
+            \Dashed\DashedEcommerceCore\Events\Orders\OrderReturnApprovedEvent::class,
+            \Dashed\DashedEcommerceVeloyd\Listeners\CreateVeloydReturnLabelListener::class
+        );
+
         $this->app->booted(function () {
             $schedule = app(Schedule::class);
             $schedule->command(CreateVeloydConceptOrders::class)->everyMinute()->withoutOverlapping();
