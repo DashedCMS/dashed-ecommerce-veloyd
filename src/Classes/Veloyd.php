@@ -55,12 +55,17 @@ class Veloyd
 
     protected static function client(?string $siteId = null)
     {
+        // Hard timeouts so a slow/hanging Veloyd response can never stall a run,
+        // plus a backoff retry for transient connection failures.
         return Http::withHeaders([
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
             'User-Agent' => self::getUserAgent(),
             'Authorization' => 'Apikey ' . self::apiKey($siteId),
-        ]);
+        ])
+            ->connectTimeout(10)
+            ->timeout(20)
+            ->retry(3, 2000, throw: false);
     }
 
     public static function connectOrderWithCarrier(Order $order)
