@@ -26,6 +26,9 @@ class Veloyd
 {
     public const LABEL_BATCH_SIZE = 20;
 
+    /** Pause between bulk status calls (microseconds) to stay under the Veloyd rate limit. */
+    private const STATUS_SYNC_THROTTLE_MICROSECONDS = 250000;
+
     public static function getUserAgent(): string
     {
         return 'DashedCMS/2.0 PHP/8.2';
@@ -817,6 +820,8 @@ class Veloyd
 
         foreach ($orders as $vo) {
             $updated += self::syncShipmentStatus($vo);
+            // Throttle bulk status syncing so we don't overwhelm the Veloyd API.
+            usleep(self::STATUS_SYNC_THROTTLE_MICROSECONDS);
         }
 
         return $updated;
