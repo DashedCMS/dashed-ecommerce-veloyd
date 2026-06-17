@@ -860,14 +860,34 @@ class Veloyd
                 return 0;
             }
             $shipment = self::getShipment($vo->shipment_id, $vo->order->site_id);
-            $code = $shipment['parcel']['status'] ?? $shipment['status'] ?? null;
-            if ($code === null) {
-                return 0;
+
+            $changed = false;
+
+            // Backfill a track & trace that was not yet available at label creation
+            // (carriers like PostNL assign it asynchronously). Without this the order
+            // never gets an OrderTrackAndTrace, so downstream syncs (e.g. Bol) skip it.
+            if (empty($vo->track_and_trace)) {
+                $trackTrace = $shipment['parcel']['trackTrace'] ?? null;
+                $trackTraceLink = $shipment['parcel']['trackTraceLink'] ?? null;
+
+                if ($trackTrace) {
+                    $vo->track_and_trace = [[$trackTrace => $trackTraceLink ?: '']];
+                    $vo->order->addTrackAndTrace('veloyd', $vo->carrier ?: 'Veloyd', $trackTrace, $trackTraceLink ?: '');
+                    $changed = true;
+                }
             }
-            $normalized = self::normalizeStatus((int) $code);
-            if ($normalized && $vo->status !== $normalized) {
-                $vo->status = $normalized;
-                $vo->status_updated_at = now();
+
+            $code = $shipment['parcel']['status'] ?? $shipment['status'] ?? null;
+            if ($code !== null) {
+                $normalized = self::normalizeStatus((int) $code);
+                if ($normalized && $vo->status !== $normalized) {
+                    $vo->status = $normalized;
+                    $vo->status_updated_at = now();
+                    $changed = true;
+                }
+            }
+
+            if ($changed) {
                 $vo->save();
 
                 return 1;
