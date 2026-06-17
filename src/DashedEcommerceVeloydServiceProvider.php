@@ -10,6 +10,7 @@ use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Dashed\DashedEcommerceVeloyd\Commands\CheckVeloydOrders;
 use Dashed\DashedEcommerceVeloyd\Livewire\Orders\ShowVeloydOrders;
+use Dashed\DashedEcommerceVeloyd\Commands\BackfillVeloydTrackTraces;
 use Dashed\DashedEcommerceVeloyd\Commands\CreateVeloydConceptOrders;
 use Dashed\DashedEcommerceVeloyd\Livewire\Orders\ShowPushToVeloydOrder;
 use Dashed\DashedEcommerceVeloyd\Filament\Pages\Settings\VeloydSettingsPage;
@@ -39,6 +40,9 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
             $schedule->command(CreateVeloydConceptOrders::class)->everyMinute()->withoutOverlapping();
             $schedule->command(CheckVeloydOrders::class)->everyFifteenMinutes()->withoutOverlapping();
             $schedule->command(\Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class)->hourly()->withoutOverlapping();
+            // Vangt zendingen op waarvan de T&T pas later (asynchroon) door de vervoerder is
+            // toegekend, inclusief al afgehandelde zendingen die de status-sync overslaat.
+            $schedule->command(BackfillVeloydTrackTraces::class)->daily()->withoutOverlapping();
         });
 
         cms()->registerSettingsDocs(
@@ -101,6 +105,7 @@ MARKDOWN,
                 CheckVeloydOrders::class,
                 CreateVeloydConceptOrders::class,
                 \Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class,
+                BackfillVeloydTrackTraces::class,
             ])
             ->hasViews();
 

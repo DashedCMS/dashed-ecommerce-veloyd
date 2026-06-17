@@ -828,6 +828,44 @@ class Veloyd
     }
 
     /**
+     * Retroactieve backfill: haalt voor elke Veloyd-zending zonder track & trace
+     * de T&T alsnog uit de API. Anders dan syncShipmentStatuses() filtert dit NIET
+     * op status, zodat ook al geleverde/geannuleerde/geretourneerde zendingen (die de
+     * reguliere sync overslaat) hun ontbrekende T&T alsnog gekoppeld krijgen.
+     *
+     * @param  callable|null  $progress  optionele callback($vo, $gotTrackTrace) per zending
+     * @return array{total:int, fixed:int, stillEmpty:int}
+     */
+    public static function backfillMissingTrackAndTraces(?callable $progress = null): array
+    {
+        $result = ['total' => 0, 'fixed' => 0, 'stillEmpty' => 0];
+
+        $orders = VeloydOrder::query()
+            ->whereNotNull('shipment_id')
+            ->get()
+            ->filter(fn (VeloydOrder $vo) => empty($vo->track_and_trace));
+
+        $result['total'] = $orders->count();
+
+        foreach ($orders as $vo) {
+            self::syncShipmentStatus($vo);
+            $vo->refresh();
+
+            $gotTrackTrace = ! empty($vo->track_and_trace);
+            $gotTrackTrace ? $result['fixed']++ : $result['stillEmpty']++;
+
+            if ($progress) {
+                $progress($vo, $gotTrackTrace);
+            }
+
+            // Throttle bulk syncing so we don't overwhelm the Veloyd API.
+            usleep(self::STATUS_SYNC_THROTTLE_MICROSECONDS);
+        }
+
+        return $result;
+    }
+
+    /**
      * Per-order variant van syncShipmentStatuses(): werkt enkel de labelstatussen
      * van de gegeven order bij. Geeft het aantal gewijzigde labels terug.
      */
