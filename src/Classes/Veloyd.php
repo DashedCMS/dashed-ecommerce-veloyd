@@ -381,21 +381,7 @@ class Veloyd
                 Storage::disk('public')->put($filePath, $pdf);
                 $pdfPaths[] = $filePath;
 
-                $trackTrace = $labelData['trackTrace'] ?? null;
-                $trackTraceLink = $labelData['trackTraceLink'] ?? null;
-
-                if ($trackTrace) {
-                    $veloydOrder->track_and_trace = [[
-                        $trackTrace => $trackTraceLink ?: '',
-                    ]];
-
-                    $veloydOrder->order->addTrackAndTrace(
-                        'veloyd',
-                        $veloydOrder->carrier ?: 'Veloyd',
-                        $trackTrace,
-                        $trackTraceLink ?: ''
-                    );
-                }
+                self::applyTrackAndTraceFromShipment($veloydOrder);
 
                 $veloydOrder->label_pdf_path = $filePath;
                 $veloydOrder->label_printed = 1;
@@ -495,21 +481,7 @@ class Veloyd
             throw new Exception('Lege PDF terug van Veloyd voor shipment ' . $veloydOrder->shipment_id);
         }
 
-        $trackTrace = $labelData['trackTrace'] ?? null;
-        $trackTraceLink = $labelData['trackTraceLink'] ?? null;
-
-        if ($trackTrace) {
-            $veloydOrder->track_and_trace = [[
-                $trackTrace => $trackTraceLink ?: '',
-            ]];
-
-            $veloydOrder->order->addTrackAndTrace(
-                'veloyd',
-                $veloydOrder->carrier ?: 'Veloyd',
-                $trackTrace,
-                $trackTraceLink ?: ''
-            );
-        }
+        self::applyTrackAndTraceFromShipment($veloydOrder);
 
         $filePath = 'dashed/orders/veloyd/label-' . $veloydOrder->order->invoice_id . '-' . \Illuminate\Support\Str::random(40) . '.pdf';
         Storage::disk('public')->put($filePath, $pdf);
@@ -564,14 +536,7 @@ class Veloyd
             throw new Exception('Lege retour-PDF terug van Veloyd voor shipment ' . $shipmentId);
         }
 
-        $trackTrace = $labelData['trackTrace'] ?? null;
-        $trackTraceLink = $labelData['trackTraceLink'] ?? null;
-
-        if ($trackTrace) {
-            $veloydOrder->track_and_trace = [[
-                $trackTrace => $trackTraceLink ?: '',
-            ]];
-        }
+        self::applyTrackAndTraceFromShipment($veloydOrder, linkToOrder: false);
 
         $filePath = 'dashed/orders/veloyd/return-label-' . $veloydOrder->order->invoice_id . '-' . \Illuminate\Support\Str::random(40) . '.pdf';
         Storage::disk('public')->put($filePath, $pdf);
@@ -596,6 +561,57 @@ class Veloyd
         }
 
         return (array) $response->json();
+    }
+
+    /**
+     * Koppelt de track & trace van een zending aan de VeloydOrder en (optioneel)
+     * de klant-order. De T&T wordt opgehaald via /parcel/get — dat is de enige
+     * endpoint die 'm betrouwbaar teruggeeft (in parcel.trackTrace); /parcel/label
+     * bevat 'm niet, waardoor labels voorheen zonder T&T werden aangemaakt.
+     *
+     * Idempotent en error-veilig: bestaat er al een T&T of geeft de carrier 'm
+     * nog niet terug (PostNL kent 'm soms asynchroon toe), dan gebeurt er niets
+     * en pikt de dagelijkse backfill / statussync 'm later alsnog op.
+     *
+     * @param  bool  $linkToOrder  retourlabels koppelen we niet aan de klant-order
+     * @return bool  of er een track & trace gekoppeld is
+     */
+    protected static function applyTrackAndTraceFromShipment(VeloydOrder $veloydOrder, bool $linkToOrder = true): bool
+    {
+        if (! empty($veloydOrder->track_and_trace)) {
+            return false;
+        }
+
+        try {
+            $shipment = self::getShipment($veloydOrder->shipment_id, $veloydOrder->order->site_id);
+        } catch (Throwable $e) {
+            Log::warning('Veloyd track & trace fetch failed', [
+                'veloyd_order_id' => $veloydOrder->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        $trackTrace = $shipment['parcel']['trackTrace'] ?? null;
+        $trackTraceLink = $shipment['parcel']['trackTraceLink'] ?? null;
+
+        if (! $trackTrace) {
+            return false;
+        }
+
+        $veloydOrder->track_and_trace = [[$trackTrace => $trackTraceLink ?: '']];
+
+        if ($linkToOrder) {
+            $veloydOrder->order->addTrackAndTrace(
+                'veloyd',
+                $veloydOrder->carrier ?: 'Veloyd',
+                $trackTrace,
+                $trackTraceLink ?: ''
+            );
+        }
+
+        return true;
     }
 
     /**
