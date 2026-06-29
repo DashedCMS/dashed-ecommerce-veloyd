@@ -42,7 +42,9 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
             $schedule->command(\Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class)->hourly()->withoutOverlapping();
             // Vangt zendingen op waarvan de T&T pas later (asynchroon) door de vervoerder is
             // toegekend, inclusief al afgehandelde zendingen die de status-sync overslaat.
-            $schedule->command(BackfillVeloydTrackTraces::class)->daily()->withoutOverlapping();
+            // Elk kwartier i.p.v. dagelijks, zodat een vers verzonden order snel scanbaar
+            // is in de inpak-/track&trace-scanner (i.p.v. pas de volgende dag).
+            $schedule->command(BackfillVeloydTrackTraces::class)->everyFifteenMinutes()->withoutOverlapping();
         });
 
         cms()->registerSettingsDocs(
