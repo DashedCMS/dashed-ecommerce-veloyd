@@ -13,6 +13,7 @@ use Dashed\DashedCore\Models\Customsetting;
 use Dashed\DashedEcommerceCore\Models\Order;
 use Dashed\DashedEcommerceCore\Models\OrderLog;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
+use Dashed\DashedEcommerceVeloyd\Jobs\SyncVeloydTrackAndTraceJob;
 
 /**
  * HTTP-based client voor de Veloyd API (https://app.veloyd.nl/apidoc/).
@@ -382,6 +383,7 @@ class Veloyd
                 $pdfPaths[] = $filePath;
 
                 self::applyTrackAndTraceFromShipment($veloydOrder);
+                self::queueTrackAndTraceRetryIfMissing($veloydOrder);
 
                 $veloydOrder->label_pdf_path = $filePath;
                 $veloydOrder->label_printed = 1;
@@ -482,6 +484,7 @@ class Veloyd
         }
 
         self::applyTrackAndTraceFromShipment($veloydOrder);
+        self::queueTrackAndTraceRetryIfMissing($veloydOrder);
 
         $filePath = 'dashed/orders/veloyd/label-' . $veloydOrder->order->invoice_id . '-' . \Illuminate\Support\Str::random(40) . '.pdf';
         Storage::disk('public')->put($filePath, $pdf);
@@ -612,6 +615,36 @@ class Veloyd
         }
 
         return true;
+    }
+
+    /**
+     * Publieke entrypoint (o.a. voor SyncVeloydTrackAndTraceJob): probeert de
+     * track & trace alsnog te koppelen en bewaart de VeloydOrder bij succes.
+     */
+    public static function backfillTrackAndTraceForVeloydOrder(VeloydOrder $veloydOrder): bool
+    {
+        $applied = self::applyTrackAndTraceFromShipment($veloydOrder);
+
+        if ($applied) {
+            $veloydOrder->save();
+        }
+
+        return $applied;
+    }
+
+    /**
+     * Zet een korte retry-job in de wachtrij wanneer de T&T bij het bevestigen
+     * van het label nog niet beschikbaar was, zodat hij binnen minuten alsnog
+     * gekoppeld wordt i.p.v. pas bij de uurlijkse backfill.
+     */
+    protected static function queueTrackAndTraceRetryIfMissing(VeloydOrder $veloydOrder): void
+    {
+        if (! empty($veloydOrder->track_and_trace)) {
+            return;
+        }
+
+        SyncVeloydTrackAndTraceJob::dispatch($veloydOrder->id)
+            ->delay(now()->addMinutes(SyncVeloydTrackAndTraceJob::RETRY_DELAYS_MINUTES[0]));
     }
 
     /**
@@ -832,6 +865,13 @@ class Veloyd
             ->where(function ($q): void {
                 $q->whereNull('status')->orWhereNotIn('status', ['delivered', 'cancelled', 'returned']);
             })
+            // Eerlijke volgorde zodat met >200 openstaande zendingen niemand
+            // structureel buiten de boot valt: eerst zendingen zonder track &
+            // trace, daarna de langst-niet-gesyncte (NULL = nog nooit) eerst.
+            ->orderByRaw("CASE WHEN track_and_trace IS NULL OR track_and_trace = '[]' THEN 0 ELSE 1 END")
+            ->orderByRaw('status_updated_at IS NULL DESC')
+            ->orderBy('status_updated_at')
+            ->orderBy('id')
             ->limit(200)->get();
 
         foreach ($orders as $vo) {
