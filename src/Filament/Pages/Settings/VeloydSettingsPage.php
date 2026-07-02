@@ -41,6 +41,7 @@ class VeloydSettingsPage extends Page
             $formData["veloyd_test_mode_{$site['id']}"] = Customsetting::get('veloyd_test_mode', $site['id'], 0) ? true : false;
             $formData["veloyd_connected_{$site['id']}"] = Customsetting::get('veloyd_connected', $site['id'], 0) ? true : false;
             $formData["veloyd_automatically_push_orders_{$site['id']}"] = Customsetting::get('veloyd_automatically_push_orders', $site['id'], 0) ? true : false;
+            $formData["veloyd_auto_handled_after_shipped_days_{$site['id']}"] = (int) Customsetting::get('veloyd_auto_handled_after_shipped_days', $site['id'], 0);
             foreach ($this->activatedRegions as $region) {
                 $region = Countries::getCountryIsoCode($region);
                 $formData["veloyd_default_package_type_{$region}_{$site['id']}"] = Customsetting::get("veloyd_default_package_type_{$region}", $site['id'], 1);
@@ -135,6 +136,16 @@ class VeloydSettingsPage extends Page
                         'default' => 1,
                         'lg' => 2,
                     ]),
+                TextInput::make("veloyd_auto_handled_after_shipped_days_{$site['id']}")
+                    ->label('Automatisch afhandelen na X dagen verzonden')
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(0)
+                    ->helperText('Veloyd meldt aflevering niet altijd terug. Staat een order langer dan dit aantal dagen op verzonden, dan wordt die automatisch op afgehandeld gezet (start de opvolg-flow). 0 = uit.')
+                    ->columnSpan([
+                        'default' => 1,
+                        'lg' => 2,
+                    ]),
             ], $regionSchemas);
 
             $tabs[] = Tab::make($site['id'])
@@ -160,6 +171,7 @@ class VeloydSettingsPage extends Page
             Customsetting::set('veloyd_api_key', $this->form->getState()["veloyd_api_key_{$site['id']}"], $site['id']);
             Customsetting::set('veloyd_test_mode', $this->form->getState()["veloyd_test_mode_{$site['id']}"], $site['id']);
             Customsetting::set('veloyd_automatically_push_orders', $this->form->getState()["veloyd_automatically_push_orders_{$site['id']}"], $site['id']);
+            Customsetting::set('veloyd_auto_handled_after_shipped_days', (int) $this->form->getState()["veloyd_auto_handled_after_shipped_days_{$site['id']}"], $site['id']);
             foreach ($this->activatedRegions as $region) {
                 $region = Countries::getCountryIsoCode($region);
                 Customsetting::set("veloyd_default_package_type_{$region}", $this->form->getState()["veloyd_default_package_type_{$region}_{$site['id']}"], $site['id']);
