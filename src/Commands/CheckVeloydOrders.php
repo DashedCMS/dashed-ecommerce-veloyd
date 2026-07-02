@@ -3,6 +3,7 @@
 namespace Dashed\DashedEcommerceVeloyd\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Dashed\DashedCore\Models\Customsetting;
 use Dashed\DashedEcommerceCore\Models\Order;
@@ -24,9 +25,18 @@ class CheckVeloydOrders extends Command
 
     public function handle()
     {
+        // 1) Snelle, API-loze tijd-fallback voor reeds verzonden orders. Die
+        //    hoeven niet (telkens opnieuw) bij Veloyd gepolld te worden — dat is
+        //    traag én Veloyd meldt aflevering vaak niet terug. Zodra ze lang
+        //    genoeg onderweg zijn, gaan ze automatisch naar 'handled' zodat de
+        //    opvolg-flow start. Scheelt honderden trage API-calls per run.
+        $this->autoHandleShippedOrders();
+
+        // 2) Alleen nog-niet-verzonden orders bij Veloyd checken (kleine,
+        //    doorlopende set) om de shipped/delivered-overgang te detecteren.
         Order::thisSite()
             ->isPaid()
-            ->where('fulfillment_status', '!=', 'handled')
+            ->whereNotIn('fulfillment_status', ['handled', 'shipped'])
             ->chunkById(100, function ($orders) {
                 foreach ($orders as $order) {
                     try {
@@ -34,6 +44,36 @@ class CheckVeloydOrders extends Command
                     } catch (\Throwable $e) {
                         // One failing order must never abort the whole run.
                         Log::warning("[CheckVeloydOrders] order {$order->id} overgeslagen: {$e->getMessage()}");
+                    }
+                }
+            });
+    }
+
+    /**
+     * Zet verzonden orders die al langer dan de ingestelde drempel onderweg zijn
+     * op 'handled', zonder Veloyd te bevragen. De verzenddatum leiden we af uit
+     * het (nieuwste) Veloyd-label. Customsetting `veloyd_auto_handled_after_shipped_days`
+     * = 0 zet dit uit.
+     */
+    private function autoHandleShippedOrders(): void
+    {
+        Order::thisSite()
+            ->isPaid()
+            ->where('fulfillment_status', 'shipped')
+            ->chunkById(200, function ($orders) {
+                foreach ($orders as $order) {
+                    try {
+                        $fallbackDays = (int) Customsetting::get('veloyd_auto_handled_after_shipped_days', $order->site_id, 0);
+                        if ($fallbackDays <= 0) {
+                            continue;
+                        }
+
+                        $shippedAt = $order->veloydOrders()->max('created_at');
+                        if ($shippedAt && Carbon::parse($shippedAt)->lte(now()->subDays($fallbackDays))) {
+                            $order->changeFulfillmentStatus('handled');
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning("[CheckVeloydOrders] tijd-fallback order {$order->id} overgeslagen: {$e->getMessage()}");
                     }
                 }
             });
