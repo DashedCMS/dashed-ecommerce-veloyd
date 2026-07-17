@@ -249,6 +249,32 @@ class Veloyd
     }
 
     /**
+     * Filtert de per-order overrides (uit de mobile-api/Filament-forms) tot de
+     * extra label-opties die als Veloyd-optiestring in de parcel-payload horen.
+     * Veloyd-opties zijn dynamische strings (via /parcel/options), dus er is
+     * geen vaste whitelist zoals bij MyParcel: alleen de basis/meta-keys
+     * (`carrier`, `package_type`, `delivery_type`, `provider`, `ids`) worden
+     * uitgesloten, en alleen truthy waarden blijven over (als `key => true`).
+     */
+    public static function sanitizeExtraOptions(array $overrides): array
+    {
+        $reserved = ['carrier', 'package_type', 'delivery_type', 'provider', 'ids'];
+
+        $filtered = array_diff_key($overrides, array_flip($reserved));
+
+        $sanitized = [];
+        foreach ($filtered as $key => $value) {
+            if (! $value) {
+                continue;
+            }
+
+            $sanitized[$key] = true;
+        }
+
+        return $sanitized;
+    }
+
+    /**
      * Bouwt de Veloyd /parcel/create payload op vanuit een VeloydOrder.
      * Used by zowel createConcepts() (bulk) als createConceptAndLabelForOrder()
      * (per-order) zodat we maar één plek hebben waar adres/options gemapped
@@ -269,6 +295,9 @@ class Veloyd
         if ($veloydOrder->delivery_type && $veloydOrder->delivery_type !== 'Standaard') {
             $options[] = $veloydOrder->delivery_type;
         }
+        // Extra label-opties die de admin/klant koos (bv. "Handtekening"),
+        // opgeslagen als key => true via Veloyd::sanitizeExtraOptions().
+        $options = array_merge($options, array_keys(array_filter($veloydOrder->options ?? [])));
 
         $packageDefaults = self::getPackageTypeDefaults((int) $veloydOrder->package_type);
 
@@ -522,6 +551,7 @@ class Veloyd
             'package_type' => $overrides['package_type'] ?? Customsetting::get("veloyd_default_package_type_{$country}", null, 1),
             'delivery_type' => $overrides['delivery_type'] ?? Customsetting::get("veloyd_default_delivery_type_{$country}", null, 'Standaard'),
             'is_return' => false,
+            'options' => self::sanitizeExtraOptions($overrides),
         ];
 
         $veloydOrder = $order->veloydOrders()

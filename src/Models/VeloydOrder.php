@@ -25,6 +25,7 @@ class VeloydOrder extends Model
         'carrier',
         'package_type',
         'delivery_type',
+        'options',
         'error',
         'is_return',
         'is_label_email_sent',
@@ -34,6 +35,7 @@ class VeloydOrder extends Model
 
     protected $casts = [
         'track_and_trace' => 'array',
+        'options' => 'array',
         'label_printed' => 'boolean',
         'is_return' => 'boolean',
         'is_label_email_sent' => 'boolean',
