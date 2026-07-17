@@ -6,6 +6,7 @@ use Throwable;
 use Livewire\Component;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Contracts\HasSchemas;
@@ -47,10 +48,17 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                 $data['delivery_type'] = $veloydOrder->delivery_type ?? Customsetting::get("veloyd_default_delivery_type_{$this->order->countryIsoCode}", null, 'Standaard');
                 $data['carrier'] = $veloydOrder->carrier ?? Customsetting::get("veloyd_default_carrier_{$this->order->countryIsoCode}", null, 'PostNL');
 
+                $existingOptions = $veloydOrder->options ?? [];
+                foreach (Veloyd::extraLabelOptions($this->order) as $field) {
+                    $data[$field['name']] = array_key_exists($field['name'], $existingOptions)
+                        ? (bool) $existingOptions[$field['name']]
+                        : $field['default'];
+                }
+
                 return $data;
             })
             ->schema(function () {
-                return [
+                $fields = [
                     Select::make("carrier")
                         ->label('Carrier')
                         ->required()
@@ -66,9 +74,18 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                         ->options(Veloyd::getDeliveryTypes())
                         ->helperText('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen'),
                 ];
+
+                foreach (Veloyd::extraLabelOptions($this->order) as $extraOption) {
+                    $fields[] = Toggle::make($extraOption['name'])
+                        ->label($extraOption['label']);
+                }
+
+                return $fields;
             })
             ->action(function ($data) {
                 $this->validate();
+
+                $options = Veloyd::sanitizeExtraOptions($data);
 
                 $veloydOrder = $this->order->veloydOrders()
                     ->where('label_printed', 0)
@@ -81,6 +98,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                         'package_type' => $data['package_type'],
                         'delivery_type' => $data['delivery_type'],
                         'is_return' => false,
+                        'options' => $options,
                     ]);
                 } else {
                     $veloydOrder->update([
@@ -88,6 +106,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                         'package_type' => $data['package_type'],
                         'delivery_type' => $data['delivery_type'],
                         'is_return' => false,
+                        'options' => $options,
                     ]);
                 }
 

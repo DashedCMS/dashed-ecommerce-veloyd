@@ -66,6 +66,19 @@
                             </p>
                         @endif
                     </div>
+
+                    @php
+                        $extraOptions = \Dashed\DashedEcommerceVeloyd\Classes\Veloyd::readOptionsForDisplay($veloydOrder->options);
+                    @endphp
+                    @if(count($extraOptions))
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            @foreach($extraOptions as $opt)
+                                <x-filament::badge color="gray">
+                                    {{ $opt['label'] }}: {{ $opt['value'] }}
+                                </x-filament::badge>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
 
                 <div class="flex items-center gap-1">
