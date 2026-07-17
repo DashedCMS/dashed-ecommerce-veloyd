@@ -161,6 +161,94 @@ class Veloyd
     }
 
     /**
+     * Haalt de door Veloyd beschikbare extra verzendopties op voor deze
+     * order via /parcel/options (zelfde call-patroon als isConnected()
+     * hierboven, nu met het echte adres van de order) en mapt elke
+     * teruggegeven optiestring naar een boolean-descriptor voor het
+     * label-optieformulier. Faalt de call (netwerk, non-2xx, onverwachte
+     * response-shape) → vaste fallback met alleen "Retour", zodat de admin
+     * nooit zonder opties komt te zitten.
+     */
+    public static function extraLabelOptions(Order $order): array
+    {
+        try {
+            $siteId = $order->site_id;
+
+            $response = self::client($siteId)
+                ->post(self::baseUrl($siteId) . '/parcel/options', [
+                    'parcel' => [
+                        'address' => [
+                            'name' => trim($order->name ?: ($order->first_name . ' ' . $order->last_name)),
+                            'street' => (string) $order->street,
+                            'nr' => (string) $order->house_nr,
+                            'postalCode' => trim((string) $order->zip_code),
+                            'city' => (string) $order->city,
+                            'country' => (string) $order->countryIsoCode,
+                        ],
+                        'weight' => 1000,
+                    ],
+                ]);
+
+            if ($response->failed()) {
+                throw new Exception('Veloyd /parcel/options faalde (status ' . $response->status() . ')');
+            }
+
+            $optionStrings = (array) ($response->json('options') ?? []);
+
+            return self::optionStringsToFields($optionStrings);
+        } catch (Throwable $e) {
+            return [
+                ['name' => 'Retour', 'label' => 'Retour', 'type' => 'boolean', 'required' => false, 'default' => false, 'group' => 'extra'],
+            ];
+        }
+    }
+
+    /**
+     * Pure mapping van Veloyd-optiestrings (zoals teruggegeven door
+     * /parcel/options) naar boolean-descriptors voor het label-
+     * optieformulier. Los getrokken van extraLabelOptions() zodat dit
+     * zonder HTTP-mocking unit-testbaar is.
+     */
+    public static function optionStringsToFields(array $strings): array
+    {
+        return array_values(array_map(static fn (string $option) => [
+            'name' => $option,
+            'label' => $option,
+            'type' => 'boolean',
+            'required' => false,
+            'default' => false,
+            'group' => 'extra',
+        ], $strings));
+    }
+
+    /**
+     * Mapt opgeslagen label-opties (bv. VeloydOrder::options) naar een
+     * weergaveklare lijst voor de admin: alleen de truthy/aanwezige opties,
+     * elk met een vaste "Ja"-waarde.
+     */
+    public static function readOptionsForDisplay(?array $options): array
+    {
+        if (! $options) {
+            return [];
+        }
+
+        $readable = [];
+        foreach ($options as $key => $value) {
+            if (! $value) {
+                continue;
+            }
+
+            $readable[] = [
+                'key' => (string) $key,
+                'label' => (string) $key,
+                'value' => 'Ja',
+            ];
+        }
+
+        return $readable;
+    }
+
+    /**
      * Bouwt de Veloyd /parcel/create payload op vanuit een VeloydOrder.
      * Used by zowel createConcepts() (bulk) als createConceptAndLabelForOrder()
      * (per-order) zodat we maar één plek hebben waar adres/options gemapped
