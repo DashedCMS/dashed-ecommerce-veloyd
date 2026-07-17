@@ -57,19 +57,26 @@ class Veloyd
         return 'https://app.veloyd.nl/api';
     }
 
-    protected static function client(?string $siteId = null)
+    protected static function client(?string $siteId = null, bool $fast = false)
     {
         // Hard timeouts so a slow/hanging Veloyd response can never stall a run,
-        // plus a backoff retry for transient connection failures.
-        return Http::withHeaders([
+        // plus een backoff-retry voor transiënte verbindingsfouten.
+        //
+        // `$fast`: voor optionele verrijkings-calls (bv. /parcel/options bij het
+        // openen van het labelscherm). Die mogen de UI NOOIT tot ~60s blokkeren,
+        // dus: korte timeout én GEEN retry — bij traagheid faalt de call snel en
+        // valt de aanroeper terug op standaardopties. De retry blijft alleen op de
+        // kritieke schrijf-calls (label daadwerkelijk aanmaken).
+        $http = Http::withHeaders([
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
             'User-Agent' => self::getUserAgent(),
             'Authorization' => 'Apikey ' . self::apiKey($siteId),
         ])
-            ->connectTimeout(10)
-            ->timeout(20)
-            ->retry(3, 2000, throw: false);
+            ->connectTimeout($fast ? 3 : 10)
+            ->timeout($fast ? 4 : 20);
+
+        return $fast ? $http : $http->retry(3, 2000, throw: false);
     }
 
     public static function connectOrderWithCarrier(Order $order)
@@ -174,7 +181,7 @@ class Veloyd
         try {
             $siteId = $order->site_id;
 
-            $response = self::client($siteId)
+            $response = self::client($siteId, fast: true)
                 ->post(self::baseUrl($siteId) . '/parcel/options', [
                     'parcel' => [
                         'address' => [
