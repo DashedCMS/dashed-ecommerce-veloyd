@@ -23,9 +23,23 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
 
     public Order $order;
 
+    private ?array $extraOptions = null;
+
     public function mount(Order $order)
     {
         $this->order = $order;
+    }
+
+    /**
+     * Memoized per component-instance: extraLabelOptions() doet een LIVE
+     * /parcel/options-call, en fillForm() + schema() draaien allebei bij
+     * het openen van het formulier. Zonder memoization kunnen die twee
+     * calls een ander optieset teruggeven, waardoor de geseede defaults
+     * (fillForm) en de gerenderde toggles (schema) uit sync raken.
+     */
+    protected function extraLabelOptions(): array
+    {
+        return $this->extraOptions ??= Veloyd::extraLabelOptions($this->order);
     }
 
     public function render()
@@ -49,7 +63,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                 $data['carrier'] = $veloydOrder->carrier ?? Customsetting::get("veloyd_default_carrier_{$this->order->countryIsoCode}", null, 'PostNL');
 
                 $existingOptions = $veloydOrder->options ?? [];
-                foreach (Veloyd::extraLabelOptions($this->order) as $field) {
+                foreach ($this->extraLabelOptions() as $field) {
                     $data[$field['name']] = array_key_exists($field['name'], $existingOptions)
                         ? (bool) $existingOptions[$field['name']]
                         : $field['default'];
@@ -75,7 +89,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                         ->helperText('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen'),
                 ];
 
-                foreach (Veloyd::extraLabelOptions($this->order) as $extraOption) {
+                foreach ($this->extraLabelOptions() as $extraOption) {
                     $fields[] = Toggle::make($extraOption['name'])
                         ->label($extraOption['label']);
                 }

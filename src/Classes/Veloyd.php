@@ -298,6 +298,10 @@ class Veloyd
         // Extra label-opties die de admin/klant koos (bv. "Handtekening"),
         // opgeslagen als key => true via Veloyd::sanitizeExtraOptions().
         $options = array_merge($options, array_keys(array_filter($veloydOrder->options ?? [])));
+        // Dedupe: een gekozen dynamische optiestring kan toevallig gelijk
+        // zijn aan "Retour" of het delivery_type, wat anders een dubbele
+        // entry naar Veloyd zou sturen.
+        $options = array_values(array_unique($options));
 
         $packageDefaults = self::getPackageTypeDefaults((int) $veloydOrder->package_type);
 
