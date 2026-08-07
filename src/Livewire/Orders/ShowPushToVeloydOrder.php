@@ -50,7 +50,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
     public function action(): Action
     {
         return Action::make('action')
-            ->label('Verzendlabel aanmaken')
+            ->label(__('Verzendlabel aanmaken'))
             ->color('primary')
             ->icon('heroicon-o-document-arrow-down')
             ->fillForm(function () {
@@ -74,19 +74,19 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
             ->schema(function () {
                 $fields = [
                     Select::make("carrier")
-                        ->label('Carrier')
+                        ->label(__('Carrier'))
                         ->required()
                         ->options(Veloyd::getCarriers()),
                     Select::make("package_type")
-                        ->label('Pakket type')
+                        ->label(__('Pakket type'))
                         ->required()
                         ->options(Veloyd::getPackageTypes())
-                        ->helperText('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen'),
+                        ->helperText(__('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen')),
                     Select::make("delivery_type")
-                        ->label('Verzend type')
+                        ->label(__('Verzend type'))
                         ->required()
                         ->options(Veloyd::getDeliveryTypes())
-                        ->helperText('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen'),
+                        ->helperText(__('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen')),
                 ];
 
                 foreach ($this->extraLabelOptions() as $extraOption) {
@@ -131,7 +131,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                     $veloydOrder->save();
 
                     Notification::make()
-                        ->title('Aanmaken van verzendlabel mislukt')
+                        ->title(__('Aanmaken van verzendlabel mislukt'))
                         ->body($e->getMessage())
                         ->danger()
                         ->send();
@@ -140,8 +140,8 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                 }
 
                 Notification::make()
-                    ->title('Verzendlabel aangemaakt')
-                    ->body('Het label staat klaar in de lijst hieronder en kan via de download-knop opgehaald worden.')
+                    ->title(__('Verzendlabel aangemaakt'))
+                    ->body(__('Het label staat klaar in de lijst hieronder en kan via de download-knop opgehaald worden.'))
                     ->success()
                     ->send();
 

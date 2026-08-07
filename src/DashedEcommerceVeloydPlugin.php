@@ -33,7 +33,7 @@ class DashedEcommerceVeloydPlugin implements Plugin
         cms()
             ->builder('productGroupBlocks', [
                 Select::make('veloyd-package-type')
-                    ->label('Veloyd pakket type')
+                    ->label(__('Veloyd pakket type'))
                     ->options(Veloyd::getPackageTypes()),
             ]);
     }
@@ -52,13 +52,13 @@ class DashedEcommerceVeloydPlugin implements Plugin
                 array_merge(ecommerce()->buttonActions('orders'), [
                     Action::make('downloadVeloydLabels')
                         ->button()
-                        ->label('Download Veloyd Labels (' . VeloydOrder::where('label_printed', 0)->whereNotNull('shipment_id')->count() . ')')
+                        ->label(__('Download Veloyd Labels (:aantal)', ['aantal' => VeloydOrder::where('label_printed', 0)->whereNotNull('shipment_id')->count()]))
                         ->openUrlInNewTab()
                         ->action(function () {
                             CreateShippingLabelsJob::dispatch(auth()->user())->onQueue('ecommerce');
 
                             Notification::make()
-                                ->body('Labels worden aangemaakt, ze staan over een paar minuten klaar om te downloaden')
+                                ->body(__('Labels worden aangemaakt, ze staan over een paar minuten klaar om te downloaden'))
                                 ->success()
                                 ->send();
                         }),

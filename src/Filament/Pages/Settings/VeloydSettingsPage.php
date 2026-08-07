@@ -65,34 +65,34 @@ class VeloydSettingsPage extends Page
 
             foreach ($this->activatedRegions as $region) {
                 $region = Countries::getCountryIsoCode($region);
-                $regionSchemas[] = Section::make('Voor bestellingen naar ' . $region)
+                $regionSchemas[] = Section::make(__('Voor bestellingen naar :regio', ['regio' => $region]))
                     ->schema([
                         Select::make("veloyd_default_carrier_{$region}_{$site['id']}")
-                            ->label('Automatische bestelling carrier')
+                            ->label(__('Automatische bestelling carrier'))
                             ->required(fn (Get $get) => $get("veloyd_automatically_push_orders_{$site['id']}"))
                             ->reactive()
                             ->options(Veloyd::getCarriers()),
                         Select::make("veloyd_default_package_type_{$region}_{$site['id']}")
-                            ->label('Automatische bestelling pakket type')
+                            ->label(__('Automatische bestelling pakket type'))
                             ->required(fn (Get $get) => $get("veloyd_automatically_push_orders_{$site['id']}"))
                             ->reactive()
                             ->options(Veloyd::getPackageTypes())
-                            ->helperText('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen'),
+                            ->helperText(__('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen')),
                         Select::make("veloyd_default_delivery_type_{$region}_{$site['id']}")
-                            ->label('Automatisch bestelling verzend type')
+                            ->label(__('Automatisch bestelling verzend type'))
                             ->required(fn (Get $get) => $get("veloyd_automatically_push_orders_{$site['id']}"))
                             ->reactive()
                             ->options(Veloyd::getDeliveryTypes())
-                            ->helperText('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen'),
+                            ->helperText(__('Let op: niet alle opties zijn altijd beschikbaar voor alle adressen')),
                         TextInput::make("veloyd_minimum_product_count_{$region}_{$site['id']}")
-                            ->label('Standaard pakket type vanaf een bepaald aantal producten')
+                            ->label(__('Standaard pakket type vanaf een bepaald aantal producten'))
                             ->required(fn (Get $get) => $get("veloyd_automatically_push_orders_{$site['id']}"))
                             ->reactive()
                             ->numeric()
                             ->minValue(1)
                             ->maxValue(1000),
                         Select::make("veloyd_minimum_product_count_package_type_{$region}_{$site['id']}")
-                            ->label('Standaard pakket type vanaf een bepaald aantal producten')
+                            ->label(__('Standaard pakket type vanaf een bepaald aantal producten'))
                             ->required(fn (Get $get) => $get("veloyd_automatically_push_orders_{$site['id']}"))
                             ->reactive()
                             ->options(Veloyd::getPackageTypes()),
@@ -115,33 +115,33 @@ class VeloydSettingsPage extends Page
                         'lg' => 2,
                     ]),
                 TextInput::make("veloyd_api_key_{$site['id']}")
-                    ->label('Veloyd API key')
+                    ->label(__('Veloyd API key'))
                     ->maxLength(255)
                     ->columnSpan([
                         'default' => 1,
                         'lg' => 2,
                     ]),
                 Toggle::make("veloyd_test_mode_{$site['id']}")
-                    ->label('Test-omgeving gebruiken (test.veloyd.nl)')
-                    ->helperText('Zet aan om tegen de Veloyd test-API te werken in plaats van productie.')
+                    ->label(__('Test-omgeving gebruiken (test.veloyd.nl)'))
+                    ->helperText(__('Zet aan om tegen de Veloyd test-API te werken in plaats van productie.'))
                     ->columnSpan([
                         'default' => 1,
                         'lg' => 2,
                     ]),
                 Toggle::make("veloyd_automatically_push_orders_{$site['id']}")
-                    ->label('Automatisch bestellingen naar Veloyd pushen')
+                    ->label(__('Automatisch bestellingen naar Veloyd pushen'))
                     ->reactive()
-                    ->helperText('Deze bestellingen komen als concept in Veloyd, pakket type etc kan je nog aanpassen VOORDAT je de label download')
+                    ->helperText(__('Deze bestellingen komen als concept in Veloyd, pakket type etc kan je nog aanpassen VOORDAT je de label download'))
                     ->columnSpan([
                         'default' => 1,
                         'lg' => 2,
                     ]),
                 TextInput::make("veloyd_auto_handled_after_shipped_days_{$site['id']}")
-                    ->label('Automatisch afhandelen na X dagen verzonden')
+                    ->label(__('Automatisch afhandelen na X dagen verzonden'))
                     ->numeric()
                     ->minValue(0)
                     ->default(0)
-                    ->helperText('Veloyd meldt aflevering niet altijd terug. Staat een order langer dan dit aantal dagen op verzonden, dan wordt die automatisch op afgehandeld gezet (start de opvolg-flow). 0 = uit.')
+                    ->helperText(__('Veloyd meldt aflevering niet altijd terug. Staat een order langer dan dit aantal dagen op verzonden, dan wordt die automatisch op afgehandeld gezet (start de opvolg-flow). 0 = uit.'))
                     ->columnSpan([
                         'default' => 1,
                         'lg' => 2,
@@ -184,7 +184,7 @@ class VeloydSettingsPage extends Page
         }
 
         Notification::make()
-            ->title('De Veloyd instellingen zijn opgeslagen')
+            ->title(__('De Veloyd instellingen zijn opgeslagen'))
             ->success()
             ->send();
 

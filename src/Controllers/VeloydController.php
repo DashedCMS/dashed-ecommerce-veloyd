@@ -13,7 +13,7 @@ class VeloydController extends Controller
         CreateShippingLabelsJob::dispatch(auth()->user())->onQueue('ecommerce');
 
         Notification::make()
-            ->body('Labels worden aangemaakt, ze staan over een paar minuten klaar om te downloaden')
+            ->body(__('Labels worden aangemaakt, ze staan over een paar minuten klaar om te downloaden'))
             ->success()
             ->send();
 
