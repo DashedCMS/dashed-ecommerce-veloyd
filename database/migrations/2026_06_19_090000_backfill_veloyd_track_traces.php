@@ -1,9 +1,9 @@
 <?php
 
-use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
-use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Migrations\Migration;
+use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 
 return new class () extends Migration {
     /**
