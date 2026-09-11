@@ -68,7 +68,7 @@ class CheckVeloydOrders extends Command
                             continue;
                         }
 
-                        $shippedAt = $order->veloydOrders()->max('created_at');
+                        $shippedAt = $order->sinceFulfillmentReopened($order->veloydOrders())->max('created_at');
                         if ($shippedAt && Carbon::parse($shippedAt)->lte(now()->subDays($fallbackDays))) {
                             $order->changeFulfillmentStatus('handled');
                         }
@@ -86,7 +86,12 @@ class CheckVeloydOrders extends Command
         $hasShipments = false;
         $oldestShipmentAt = null;
 
-        foreach ($order->veloydOrders()->whereNotNull('shipment_id')->get() as $veloydOrder) {
+        // Na een terugzet van afgehandeld naar open tellen alleen labels van
+        // na die terugzet mee: de oude pakketten zijn al bezorgd en zouden de
+        // bestelling anders meteen weer afhandelen.
+        $shipments = $order->sinceFulfillmentReopened($order->veloydOrders()->whereNotNull('shipment_id'))->get();
+
+        foreach ($shipments as $veloydOrder) {
             $hasShipments = true;
             $shipment = Veloyd::getShipment($veloydOrder->shipment_id, $order->site_id);
             $statusCode = (int) ($shipment['parcel']['status'] ?? $shipment['status'] ?? 0);
