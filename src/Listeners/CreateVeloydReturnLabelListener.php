@@ -79,7 +79,7 @@ class CreateVeloydReturnLabelListener implements ReturnLabelProvider, ShouldQueu
 
     public function handle(OrderReturnApprovedEvent $event): void
     {
-        if (! $event->notifyCustomer) {
+        if (! ($event->notifyCustomer ?? true)) {
             return;
         }
 
