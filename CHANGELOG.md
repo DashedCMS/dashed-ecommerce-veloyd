@@ -2,6 +2,11 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
+## v4.14.0 - 2026-09-17
+
+### Changed
+- Geen Veloyd-retourlabel als een retour vanuit het CMS zonder klantmelding is aangemeld (`OrderReturnApprovedEvent::$notifyCustomer` uit dashed-ecommerce-core v4.129.0); op een oudere ec-core zonder die vlag blijft het gedrag ongewijzigd.
+
 ## v4.13.0 - 2026-09-10
 
 ### Added
