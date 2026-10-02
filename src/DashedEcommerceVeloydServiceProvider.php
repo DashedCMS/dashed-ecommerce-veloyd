@@ -99,6 +99,7 @@ MARKDOWN,
 
         $package
             ->name('dashed-ecommerce-veloyd')
+            ->hasTranslations()
             ->hasRoutes([
                 'VeloydRoutes',
             ])
