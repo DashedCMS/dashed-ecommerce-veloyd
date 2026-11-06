@@ -344,12 +344,57 @@ class Veloyd
      * Snelle controle voor de scheduler: zonder werk start er geen eigen
      * artisan-proces. Lukt de query niet, dan draait het commando gewoon.
      */
+    public static function hasOpenShipments(): bool
+    {
+        return rescue(fn () => self::openShipmentsQuery()->exists(), true, false);
+    }
+
+    /** Wezen slaat de sync toch over; zonder bestelling houden ze alleen plek bezet. */
+    private static function openShipmentsQuery()
+    {
+        return VeloydOrder::query()
+            ->whereNotNull('shipment_id')
+            ->where(function ($q): void {
+                $q->whereNull('status')->orWhereNotIn('status', ['delivered', 'cancelled', 'returned']);
+            })
+            ->whereHas('order');
+    }
+
+    /**
+     * Dekt beide stappen van dashed:check-veloyd-orders: bestellingen die nog
+     * niet verzonden zijn met een zending, en verzonden bestellingen met een
+     * label zolang de tijd-fallback aanstaat.
+     */
+    public static function hasOrdersToCheck(): bool
+    {
+        return rescue(function () {
+            $autoHandle = (int) Customsetting::get('veloyd_auto_handled_after_shipped_days', Sites::getActive()) > 0;
+
+            return Order::thisSite()
+                ->isPaid()
+                ->where(function ($query) use ($autoHandle): void {
+                    $query->where(function ($open): void {
+                        $open->whereNotIn('fulfillment_status', ['handled', 'shipped'])
+                            ->whereHas('veloydOrders', fn ($shipments) => $shipments->whereNotNull('shipment_id'));
+                    });
+
+                    if ($autoHandle) {
+                        $query->orWhere(function ($shipped): void {
+                            $shipped->where('fulfillment_status', 'shipped')->whereHas('veloydOrders');
+                        });
+                    }
+                })
+                ->exists();
+        }, true, false);
+    }
+
     public static function hasConceptsToCreate(): bool
     {
         return rescue(
             fn () => VeloydOrder::where('label_printed', 0)
                 ->whereNull('shipment_id')
                 ->whereNull('error')
+                ->whereHas('order')
                 ->exists(),
             true,
             false,
@@ -374,7 +419,9 @@ class Veloyd
         $failures = [];
 
         foreach ($veloydOrders as $veloydOrder) {
-            if ($veloydOrder->order->site_id !== $siteId) {
+            // Een zachtverwijderde bestelling geeft null: sla die rij over, anders
+            // breekt een enkele wees elke run af.
+            if ($veloydOrder->order?->site_id !== $siteId) {
                 continue;
             }
 
@@ -1005,11 +1052,7 @@ class Veloyd
     public static function syncShipmentStatuses(): int
     {
         $updated = 0;
-        $orders = VeloydOrder::query()
-            ->whereNotNull('shipment_id')
-            ->where(function ($q): void {
-                $q->whereNull('status')->orWhereNotIn('status', ['delivered', 'cancelled', 'returned']);
-            })
+        $orders = self::openShipmentsQuery()
             // Eerlijke volgorde zodat met >200 openstaande zendingen niemand
             // structureel buiten de boot valt: eerst zendingen zonder track &
             // trace, daarna de langst-niet-gesyncte (NULL = nog nooit) eerst.
@@ -1041,10 +1084,15 @@ class Veloyd
     {
         $result = ['total' => 0, 'fixed' => 0, 'stillEmpty' => 0];
 
+        // De lege vormen van de array-cast. CAST omdat een JSON-kolom in MySQL
+        // anders als JSON vergelijkt en '[]' nooit gelijk is aan een lege array.
         $orders = VeloydOrder::query()
             ->whereNotNull('shipment_id')
-            ->get()
-            ->filter(fn (VeloydOrder $vo) => empty($vo->track_and_trace));
+            ->where(function ($q): void {
+                $q->whereNull('track_and_trace')
+                    ->orWhereRaw("CAST(track_and_trace AS CHAR) IN ('', '[]', '{}', 'null', '\"\"')");
+            })
+            ->get();
 
         $result['total'] = $orders->count();
 

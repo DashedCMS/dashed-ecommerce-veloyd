@@ -2,6 +2,11 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
+## v4.15.2 - 2026-11-06
+
+### Changed
+- Statuscontroles draaien alleen met open zendingen. Een zending zonder bestelling breekt de run niet meer af. Backfill filtert in SQL.
+
 ## v4.15.1 - 2026-11-06
 
 ### Changed

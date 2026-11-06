@@ -41,8 +41,14 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
                 ->everyMinute()
                 ->when(fn () => \Dashed\DashedEcommerceVeloyd\Classes\Veloyd::hasConceptsToCreate())
                 ->withoutOverlapping();
-            $schedule->command(CheckVeloydOrders::class)->everyFifteenMinutes()->withoutOverlapping();
-            $schedule->command(\Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class)->hourly()->withoutOverlapping();
+            $schedule->command(CheckVeloydOrders::class)
+                ->everyFifteenMinutes()
+                ->when(fn () => \Dashed\DashedEcommerceVeloyd\Classes\Veloyd::hasOrdersToCheck())
+                ->withoutOverlapping();
+            $schedule->command(\Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class)
+                ->hourly()
+                ->when(fn () => \Dashed\DashedEcommerceVeloyd\Classes\Veloyd::hasOpenShipments())
+                ->withoutOverlapping();
             // Vangt zendingen op waarvan de T&T pas later (asynchroon) door de vervoerder is
             // toegekend, inclusief al afgehandelde zendingen die de status-sync overslaat.
             // Verwerkt enkel zendingen zonder T&T, dus goedkoop om elk uur te draaien.
