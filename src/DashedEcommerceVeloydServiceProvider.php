@@ -46,13 +46,13 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
                 ->when(fn () => \Dashed\DashedEcommerceVeloyd\Classes\Veloyd::hasOrdersToCheck())
                 ->withoutOverlapping();
             $schedule->command(\Dashed\DashedEcommerceVeloyd\Commands\SyncVeloydStatuses::class)
-                ->hourly()
+                ->hourlyAt(class_exists(\Dashed\DashedCore\Classes\ScheduleSpread::class) ? \Dashed\DashedCore\Classes\ScheduleSpread::minute('sync-veloyd-statuses') : 0)
                 ->when(fn () => \Dashed\DashedEcommerceVeloyd\Classes\Veloyd::hasOpenShipments())
                 ->withoutOverlapping();
             // Vangt zendingen op waarvan de T&T pas later (asynchroon) door de vervoerder is
             // toegekend, inclusief al afgehandelde zendingen die de status-sync overslaat.
             // Verwerkt enkel zendingen zonder T&T, dus goedkoop om elk uur te draaien.
-            $schedule->command(BackfillVeloydTrackTraces::class)->hourly()->withoutOverlapping();
+            $schedule->command(BackfillVeloydTrackTraces::class)->hourlyAt(class_exists(\Dashed\DashedCore\Classes\ScheduleSpread::class) ? \Dashed\DashedCore\Classes\ScheduleSpread::minute('backfill-veloyd-track-traces') : 0)->withoutOverlapping();
         });
 
         cms()->registerSettingsDocs(
