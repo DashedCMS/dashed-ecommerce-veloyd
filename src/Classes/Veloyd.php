@@ -340,6 +340,22 @@ class Veloyd
         return $payload;
     }
 
+    /**
+     * Snelle controle voor de scheduler: zonder werk start er geen eigen
+     * artisan-proces. Lukt de query niet, dan draait het commando gewoon.
+     */
+    public static function hasConceptsToCreate(): bool
+    {
+        return rescue(
+            fn () => VeloydOrder::where('label_printed', 0)
+                ->whereNull('shipment_id')
+                ->whereNull('error')
+                ->exists(),
+            true,
+            false,
+        );
+    }
+
     public static function createConcepts(): array
     {
         $siteId = Sites::getActive();

@@ -2,6 +2,11 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
+## v4.15.1 - 2026-11-06
+
+### Changed
+- `dashed:create-veloyd-concept-orders` start alleen nog een eigen artisan-proces als er een order wacht.
+
 ## v4.14.0 - 2026-09-17
 
 ### Changed
