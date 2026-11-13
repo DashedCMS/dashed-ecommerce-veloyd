@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
 use Symfony\Component\HttpFoundation\Response;
+use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
 use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
 use Dashed\DashedEcommerceVeloyd\Jobs\CreateVeloydConceptOrdersJob;
 
@@ -57,6 +58,12 @@ class ShowVeloydOrders extends Component
             $veloydOrder->error = null;
             $veloydOrder->save();
 
+            Veloyd::logLabelEvent(
+                $veloydOrder,
+                'order.label.requeued',
+                'Veloyd-zending opnieuw in de wachtrij gezet om aan te maken (' . Veloyd::labelSummary($veloydOrder) . ').'
+            );
+
             CreateVeloydConceptOrdersJob::dispatch()->onQueue('ecommerce');
 
             $this->order->refresh();
@@ -82,6 +89,12 @@ class ShowVeloydOrders extends Component
 
         $veloydOrder->label_printed = false;
         $veloydOrder->save();
+
+        Veloyd::logLabelEvent(
+            $veloydOrder,
+            'order.label.requeued',
+            'Veloyd-label opnieuw klaargezet voor de volgende download (' . Veloyd::labelSummary($veloydOrder) . ').'
+        );
 
         $this->order->refresh();
 
@@ -113,6 +126,9 @@ class ShowVeloydOrders extends Component
             return;
         }
 
+        $summary = Veloyd::labelSummary($veloydOrder);
+        $isReturn = (bool) $veloydOrder->is_return;
+
         DB::transaction(function () use ($veloydOrder) {
             if (! empty($veloydOrder->track_and_trace[0])) {
                 OrderTrackAndTrace::where('order_id', $this->order->id)
@@ -122,6 +138,12 @@ class ShowVeloydOrders extends Component
 
             $veloydOrder->delete();
         });
+
+        Veloyd::logLabelEvent(
+            $veloydOrder,
+            'order.label.deleted',
+            ($isReturn ? 'Veloyd-retourlabel' : 'Veloyd-label') . ' verwijderd (' . $summary . '), de gekoppelde track & trace is ook verwijderd.'
+        );
 
         $this->order->refresh();
 
@@ -174,6 +196,12 @@ class ShowVeloydOrders extends Component
             $veloydOrder->label_printed = true;
             $veloydOrder->save();
         }
+
+        Veloyd::logLabelEvent(
+            $veloydOrder,
+            'order.label.downloaded',
+            'Veloyd-label gedownload (' . Veloyd::labelSummary($veloydOrder) . ').'
+        );
 
         $this->order->refresh();
 

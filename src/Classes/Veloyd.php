@@ -472,6 +472,12 @@ class Veloyd
                 $veloydOrder->error = null;
                 $veloydOrder->save();
 
+                self::logLabelEvent(
+                    $veloydOrder,
+                    'order.label.created',
+                    'Veloyd-zending aangemaakt (' . self::labelSummary($veloydOrder) . '), het label wordt opgehaald bij het downloaden.'
+                );
+
                 $orders[] = $veloydOrder->order;
             } catch (Throwable $e) {
                 $veloydOrder->error = $e->getMessage();
@@ -580,6 +586,12 @@ class Veloyd
                 $veloydOrder->label_printed = 1;
                 $veloydOrder->save();
 
+                self::logLabelEvent(
+                    $veloydOrder,
+                    'order.label.downloaded',
+                    'Veloyd-label gedownload via "Download Veloyd labels" (' . self::labelSummary($veloydOrder) . ').'
+                );
+
                 $orders[] = $veloydOrder->order;
             } catch (Throwable $e) {
                 $veloydOrder->error = $e->getMessage();
@@ -649,6 +661,7 @@ class Veloyd
         }
 
         // Stap 1: concept aanmaken (status 1 in Veloyd)
+        $conceptCreated = false;
         if (! $veloydOrder->shipment_id) {
             $response = self::client($veloydOrder->order->site_id)
                 ->post(self::baseUrl($veloydOrder->order->site_id) . '/parcel/create', self::buildParcelPayload($veloydOrder));
@@ -665,6 +678,7 @@ class Veloyd
             $veloydOrder->shipment_id = $shipmentId;
             $veloydOrder->error = null;
             $veloydOrder->save();
+            $conceptCreated = true;
         }
 
         // Stap 2: label PDF ophalen (zet status door naar 2 = confirmed)
@@ -686,6 +700,16 @@ class Veloyd
         // gedownload"-badge verschijnt voordat het PDF echt is opgehaald.
         $veloydOrder->label_pdf_path = $filePath;
         $veloydOrder->save();
+
+        // Een concept dat al in createConcepts() is aangemaakt, is daar al
+        // gelogd; hier alleen loggen als de zending in deze aanroep ontstond.
+        if ($conceptCreated) {
+            self::logLabelEvent(
+                $veloydOrder,
+                'order.label.created',
+                'Veloyd-label aangemaakt (' . self::labelSummary($veloydOrder) . ').'
+            );
+        }
 
         return [
             'filePath' => $filePath,
@@ -739,11 +763,68 @@ class Veloyd
         $veloydOrder->label_pdf_path = $filePath;
         $veloydOrder->save();
 
+        self::logLabelEvent(
+            $veloydOrder,
+            'order.return-label.created',
+            'Veloyd-retourlabel aangemaakt (' . self::labelSummary($veloydOrder) . ').'
+        );
+
         return [
             'filePath' => $filePath,
             'pdf' => $pdf,
             'veloydOrder' => $veloydOrder,
         ];
+    }
+
+    /**
+     * Korte omschrijving van een Veloyd-label voor het orderlogboek:
+     * vervoerder, pakkettype en (indien bekend) track & trace.
+     */
+    public static function labelSummary(VeloydOrder $veloydOrder): string
+    {
+        $parts = [$veloydOrder->carrier ?: 'Veloyd'];
+
+        $packageType = self::getPackageTypes()[(int) $veloydOrder->package_type] ?? null;
+        if ($packageType) {
+            $parts[] = $packageType;
+        }
+
+        $trackTrace = self::trackTraceCode($veloydOrder);
+        $parts[] = $trackTrace ? 'T&T ' . $trackTrace : 'nog geen T&T';
+
+        return implode(', ', $parts);
+    }
+
+    public static function trackTraceCode(VeloydOrder $veloydOrder): ?string
+    {
+        $first = $veloydOrder->track_and_trace[0] ?? null;
+
+        if (! is_array($first) || $first === []) {
+            return null;
+        }
+
+        $code = array_key_first($first);
+
+        return $code === null ? null : (string) $code;
+    }
+
+    /**
+     * Schrijft een label-gebeurtenis in het orderlogboek. Zonder ingelogde
+     * gebruiker (cron, queue) wordt het een systeemregel. Een fout bij het
+     * loggen mag het aanmaken of downloaden van een label nooit breken.
+     */
+    public static function logLabelEvent(VeloydOrder $veloydOrder, string $tag, string $note): void
+    {
+        rescue(
+            fn () => OrderLog::createLog(
+                orderId: (int) $veloydOrder->order_id,
+                tag: $tag,
+                note: $note,
+                isSystem: auth()->check() ? null : true,
+            ),
+            null,
+            true,
+        );
     }
 
     public static function fetchLabel(VeloydOrder $veloydOrder): array
