@@ -2,7 +2,7 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
-## Unreleased
+## v4.16.0 - 2026-11-13
 
 ### Added
 - Orderlogboek: elk Veloyd-label komt in het logboek van de bestelling: aanmaken (CMS, app, automatisering en de concepten-cron, één regel per label), downloaden (losse download en "Download Veloyd labels", op naam van wie klikte), opnieuw klaarzetten, verwijderen (met de track & trace) en een geslaagd retourlabel (ook automatisch na een goedgekeurde retour en vanuit de app). Tags `order.label.created`, `order.label.downloaded`, `order.label.requeued`, `order.label.deleted`, `order.return-label.created`, altijd met een Nederlandse notitie (vervoerder, pakkettype, track & trace). Zonder ingelogde gebruiker is het een systeemregel; een fout bij het loggen breekt het label nooit.
