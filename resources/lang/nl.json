@@ -62,5 +62,8 @@
     "Verzendlabel aanmaken": "Verzendlabel aanmaken",
     "Verzend type": "Verzend type",
     "Voor bestellingen naar :regio": "Voor bestellingen naar :regio",
-    "Zet aan om tegen de Veloyd test-API te werken in plaats van productie.": "Zet aan om tegen de Veloyd test-API te werken in plaats van productie."
+    "Zet aan om tegen de Veloyd test-API te werken in plaats van productie.": "Zet aan om tegen de Veloyd test-API te werken in plaats van productie.",
+    "Veloyd-labels aanmaken": "Veloyd-labels aanmaken",
+    ":aantal labels aangemaakt.": ":aantal labels aangemaakt.",
+    "Er stonden geen labels klaar.": "Er stonden geen labels klaar."
 }

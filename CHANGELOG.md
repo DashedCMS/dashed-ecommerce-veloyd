@@ -2,6 +2,11 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
+## v4.17.0 - 2026-11-16
+
+### Changed
+- Het taakcentrum (het tabje Bezig) toont nu het aanmaken van Veloyd-labels als één taak met voortgang per bestelling.
+
 ## v4.16.0 - 2026-11-13
 
 ### Added
