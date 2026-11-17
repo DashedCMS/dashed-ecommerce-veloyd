@@ -675,7 +675,7 @@ class Veloyd
     {
         rescue(function () use ($veloydOrder, $e): void {
             $veloydOrder->error = $e->getMessage();
-            $veloydOrder->saveQuietly();
+            $veloydOrder->save();
         }, null, false);
     }
 
@@ -687,7 +687,7 @@ class Veloyd
 
         rescue(function () use ($veloydOrder): void {
             $veloydOrder->error = null;
-            $veloydOrder->saveQuietly();
+            $veloydOrder->save();
         }, null, false);
     }
 
