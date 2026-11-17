@@ -2,7 +2,7 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
-## Unreleased
+## v4.18.0 - 2026-11-17
 
 ### Added
 - Een mislukte labelaanvraag bij Veloyd slaat nu de echte foutmelding van de vervoerder op bij de zending, zodat die in het CMS en de app zichtbaar is. Na een gelukt label wordt de fout weer gewist.
