@@ -4,6 +4,7 @@ namespace Dashed\DashedEcommerceVeloyd\Classes;
 
 use Exception;
 use Throwable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Dashed\DashedCore\Classes\Mails;
 use Dashed\DashedCore\Classes\Sites;
@@ -12,9 +13,8 @@ use Illuminate\Support\Facades\Storage;
 use Dashed\DashedCore\Models\Customsetting;
 use Dashed\DashedEcommerceCore\Models\Order;
 use Dashed\DashedEcommerceCore\Models\OrderLog;
-use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
-use Illuminate\Support\Facades\DB;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
+use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
 use Dashed\DashedEcommerceVeloyd\Jobs\SyncVeloydTrackAndTraceJob;
 
 /**
