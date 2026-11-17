@@ -2,6 +2,13 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
+## Unreleased
+
+### Added
+- Een mislukte labelaanvraag bij Veloyd slaat nu de echte foutmelding van de vervoerder op bij de zending, zodat die in het CMS en de app zichtbaar is. Na een gelukt label wordt de fout weer gewist.
+- `Veloyd::replaceLabel()` vervangt een onbruikbaar label: het oude record en de track & trace worden verwijderd en er wordt met dezelfde instellingen een nieuw label aangemaakt.
+- `Veloyd::deleteLabelRecord()` is nu de gedeelde plek voor het verwijderen van een label (gebruikt door het ordersscherm).
+
 ## v4.17.0 - 2026-11-16
 
 ### Changed

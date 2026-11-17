@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Storage;
 use Dashed\DashedCore\Models\Customsetting;
 use Dashed\DashedEcommerceCore\Models\Order;
 use Dashed\DashedEcommerceCore\Models\OrderLog;
+use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
+use Illuminate\Support\Facades\DB;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 use Dashed\DashedEcommerceVeloyd\Jobs\SyncVeloydTrackAndTraceJob;
 
@@ -656,6 +658,87 @@ class Veloyd
 
     public static function createConceptAndLabelForOrder(VeloydOrder $veloydOrder): array
     {
+        try {
+            return self::runCreateConceptAndLabel($veloydOrder);
+        } catch (Throwable $e) {
+            self::rememberLabelError($veloydOrder, $e);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Bewaart de ruwe foutmelding van een mislukte label-actie op de VeloydOrder,
+     * zodat CMS en app de echte oorzaak kunnen tonen. Nooit breken.
+     */
+    protected static function rememberLabelError(VeloydOrder $veloydOrder, Throwable $e): void
+    {
+        rescue(function () use ($veloydOrder, $e): void {
+            $veloydOrder->error = $e->getMessage();
+            $veloydOrder->saveQuietly();
+        }, null, false);
+    }
+
+    protected static function clearLabelError(VeloydOrder $veloydOrder): void
+    {
+        if ($veloydOrder->error === null) {
+            return;
+        }
+
+        rescue(function () use ($veloydOrder): void {
+            $veloydOrder->error = null;
+            $veloydOrder->saveQuietly();
+        }, null, false);
+    }
+
+    /**
+     * Verwijdert een VeloydOrder en de bijbehorende track & trace, en logt dat.
+     */
+    public static function deleteLabelRecord(VeloydOrder $veloydOrder): void
+    {
+        $summary = self::labelSummary($veloydOrder);
+        $isReturn = (bool) $veloydOrder->is_return;
+
+        DB::transaction(function () use ($veloydOrder) {
+            if (! empty($veloydOrder->track_and_trace[0])) {
+                OrderTrackAndTrace::where('order_id', $veloydOrder->order_id)
+                    ->where('code', array_key_first($veloydOrder->track_and_trace[0]))
+                    ->delete();
+            }
+
+            $veloydOrder->delete();
+        });
+
+        self::logLabelEvent(
+            $veloydOrder,
+            'order.label.deleted',
+            ($isReturn ? 'Veloyd-retourlabel' : 'Veloyd-label') . ' verwijderd (' . $summary . '), de gekoppelde track & trace is ook verwijderd.'
+        );
+    }
+
+    /**
+     * Vervangt een onbruikbaar label: verwijdert het oude record (incl. T&T) en
+     * maakt met dezelfde carrier/pakkettype/verzendtype/opties een nieuw label
+     * voor dezelfde order. Gooit door als het aanmaken faalt; het oude record is
+     * dan al weg (het was toch onbruikbaar).
+     */
+    public static function replaceLabel(VeloydOrder $old, array $overrides = []): array
+    {
+        $order = $old->order;
+
+        $defaults = [
+            'carrier' => $old->carrier,
+            'package_type' => $old->package_type,
+            'delivery_type' => $old->delivery_type,
+        ] + (array) ($old->options ?? []);
+
+        self::deleteLabelRecord($old);
+
+        return self::createLabelForOrder($order->fresh(), $overrides + $defaults);
+    }
+
+    protected static function runCreateConceptAndLabel(VeloydOrder $veloydOrder): array
+    {
         if (! $veloydOrder->carrier) {
             throw new Exception('Geen vervoerder ingesteld op deze Veloyd order.');
         }
@@ -699,6 +782,7 @@ class Veloyd
         // download-knop klikt zetten we 'm op 1. Dit voorkomt dat de "Label
         // gedownload"-badge verschijnt voordat het PDF echt is opgehaald.
         $veloydOrder->label_pdf_path = $filePath;
+        $veloydOrder->error = null;
         $veloydOrder->save();
 
         // Een concept dat al in createConcepts() is aangemaakt, is daar al
@@ -833,7 +917,10 @@ class Veloyd
             ->get(self::baseUrl($veloydOrder->order->site_id) . '/parcel/label/' . $veloydOrder->shipment_id);
 
         if ($response->failed()) {
-            throw new Exception('Veloyd /parcel/label faalde (' . $response->status() . '): ' . $response->body());
+            $e = new Exception('Veloyd /parcel/label faalde (' . $response->status() . '): ' . $response->body());
+            self::rememberLabelError($veloydOrder, $e);
+
+            throw $e;
         }
 
         return (array) $response->json();
@@ -935,10 +1022,16 @@ class Veloyd
             return null;
         }
 
-        $labelData = self::fetchLabel($veloydOrder);
-        $pdf = base64_decode($labelData['label'] ?? '');
-        if (! $pdf) {
-            throw new Exception('Leeg label-PDF terug van Veloyd voor shipment ' . $veloydOrder->shipment_id);
+        try {
+            $labelData = self::fetchLabel($veloydOrder);
+            $pdf = base64_decode($labelData['label'] ?? '');
+            if (! $pdf) {
+                throw new Exception('Leeg label-PDF terug van Veloyd voor shipment ' . $veloydOrder->shipment_id);
+            }
+        } catch (Throwable $e) {
+            self::rememberLabelError($veloydOrder, $e);
+
+            throw $e;
         }
 
         $filePath = 'dashed/orders/veloyd/label-'
@@ -947,6 +1040,7 @@ class Veloyd
         Storage::disk('public')->put($filePath, $pdf);
 
         $veloydOrder->label_pdf_path = $filePath;
+        $veloydOrder->error = null;
         $veloydOrder->save();
 
         return $filePath;

@@ -3,12 +3,10 @@
 namespace Dashed\DashedEcommerceVeloyd\Livewire\Orders;
 
 use Livewire\Component;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
 use Symfony\Component\HttpFoundation\Response;
 use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
-use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
 use Dashed\DashedEcommerceVeloyd\Jobs\CreateVeloydConceptOrdersJob;
 
 class ShowVeloydOrders extends Component
@@ -126,24 +124,7 @@ class ShowVeloydOrders extends Component
             return;
         }
 
-        $summary = Veloyd::labelSummary($veloydOrder);
-        $isReturn = (bool) $veloydOrder->is_return;
-
-        DB::transaction(function () use ($veloydOrder) {
-            if (! empty($veloydOrder->track_and_trace[0])) {
-                OrderTrackAndTrace::where('order_id', $this->order->id)
-                    ->where('code', array_key_first($veloydOrder->track_and_trace[0]))
-                    ->delete();
-            }
-
-            $veloydOrder->delete();
-        });
-
-        Veloyd::logLabelEvent(
-            $veloydOrder,
-            'order.label.deleted',
-            ($isReturn ? 'Veloyd-retourlabel' : 'Veloyd-label') . ' verwijderd (' . $summary . '), de gekoppelde track & trace is ook verwijderd.'
-        );
+        Veloyd::deleteLabelRecord($veloydOrder);
 
         $this->order->refresh();
 
