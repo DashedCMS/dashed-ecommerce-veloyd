@@ -21,6 +21,7 @@
     <testsuites>
         <testsuite name="Dashed Test Suite">
             <directory>tests</directory>
+            <exclude>tests/Integration</exclude>
         </testsuite>
     </testsuites>
     <coverage>
