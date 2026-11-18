@@ -97,7 +97,7 @@ class Veloyd
                 'package_type' => $packageType,
                 'delivery_type' => Customsetting::get('veloyd_default_delivery_type_' . $order->countryIsoCode, $order->site_id, 'Standaard'),
             ]);
-            self::flushParcelType();
+            self::flushParcelType($order);
 
             $orderLog = new OrderLog();
             $orderLog->order_id = $order->id;
@@ -652,7 +652,7 @@ class Veloyd
         } else {
             $veloydOrder = $order->veloydOrders()->create($attrs);
         }
-        self::flushParcelType();
+        self::flushParcelType($order);
 
         return self::createConceptAndLabelForOrder($veloydOrder);
     }
@@ -1210,12 +1210,46 @@ class Veloyd
         return ParcelType::carrierCodeFor($order);
     }
 
-    /** ParcelType memoiseert per order: na het aanmaken/wijzigen van een label opnieuw laten bepalen. */
-    public static function flushParcelType(): void
+    /**
+     * ParcelType memoiseert per order: na het aanmaken/wijzigen van een label opnieuw
+     * laten bepalen (ook de geladen labelrelaties, via forget() op nieuwere ec-core).
+     */
+    public static function flushParcelType(?Order $order = null): void
     {
-        if (class_exists(ParcelType::class)) {
-            ParcelType::flush();
+        if (! class_exists(ParcelType::class)) {
+            return;
         }
+
+        if ($order && method_exists(ParcelType::class, 'forget')) {
+            ParcelType::forget($order);
+
+            return;
+        }
+
+        ParcelType::flush();
+    }
+
+    /** @var array<string, bool> per site: is er een Veloyd API key (cache per proces) */
+    private static array $hasApiKey = [];
+
+    /**
+     * De berekening die als ParcelType::computeUsing() geregistreerd wordt: alleen
+     * voor sites met een Veloyd API key, zodat shops zonder Veloyd nooit een
+     * verzendvorm van Veloyd krijgen. Bewust geen isConnected() (doet een HTTP-call).
+     */
+    public static function computeParcelTypeCode(Order $order): ?int
+    {
+        $siteId = (string) $order->site_id;
+
+        self::$hasApiKey[$siteId] ??= self::apiKey($order->site_id) !== '';
+
+        return self::$hasApiKey[$siteId] ? self::computePackageTypeForOrder($order) : null;
+    }
+
+    /** Vergeet de API-key-cache van computeParcelTypeCode() (tests, na het wijzigen van de sleutel). */
+    public static function flushApiKeyCache(): void
+    {
+        self::$hasApiKey = [];
     }
 
     /**

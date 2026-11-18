@@ -22,6 +22,8 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
 {
     public static string $name = 'dashed-ecommerce-veloyd';
 
+    private static bool $parcelTypeRegistered = false;
+
     public function bootingPackage()
     {
         Livewire::component('show-push-to-veloyd-order', ShowPushToVeloydOrder::class);
@@ -34,8 +36,11 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
 
         // Verzendvorm (ec-core ParcelType): Veloyd levert de productgroep-berekening
         // met de landstandaard als terugval. Oudere ec-core kent de klasse niet.
-        if (class_exists(ParcelType::class)) {
-            ParcelType::computeUsing(fn (Order $order): ?int => Veloyd::computePackageTypeForOrder($order));
+        // Eén keer per proces registreren: bij herhaald booten (tests, Octane) mag de
+        // callable niet opstapelen.
+        if (class_exists(ParcelType::class) && ! self::$parcelTypeRegistered) {
+            ParcelType::computeUsing(fn (Order $order): ?int => Veloyd::computeParcelTypeCode($order));
+            self::$parcelTypeRegistered = true;
         }
 
         \Illuminate\Support\Facades\Event::listen(

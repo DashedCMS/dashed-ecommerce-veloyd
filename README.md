@@ -23,6 +23,13 @@ Once configured, paid orders are automatically pushed to Veloyd as concepts.
 Use the admin order overview to download labels in bulk or per-order. Return
 labels can be generated from the order sidebar.
 
+## Tests
+
+This package has no app test harness of its own.
+
+- Pure helpers: `vendor/bin/phpunit --no-configuration --bootstrap vendor/autoload.php tests/Unit`
+- Integration with ec-core's `ParcelType`: run from a dashed-ecommerce-core checkout, see the command in `tests/Integration/bootstrap.php`.
+
 ## License
 
 MIT

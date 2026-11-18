@@ -131,7 +131,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                         'options' => $options,
                     ]);
                 }
-                Veloyd::flushParcelType();
+                Veloyd::flushParcelType($this->order);
 
                 try {
                     $result = Veloyd::createConceptAndLabelForOrder($veloydOrder);
