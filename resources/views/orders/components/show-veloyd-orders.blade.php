@@ -3,6 +3,25 @@
         <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-4">
                 <div class="grid gap-2 space-y-3">
+                    @php
+                        $parcelTypeClass = \Dashed\DashedEcommerceCore\Classes\ParcelType::class;
+                        $packageTypeName = \Dashed\DashedEcommerceVeloyd\Classes\Veloyd::getPackageTypes()[(int) $veloydOrder->package_type] ?? null;
+                    @endphp
+                    @if(class_exists($parcelTypeClass))
+                        @php
+                            $parcelKey = $parcelTypeClass::keyFor($veloydOrder->package_type) ?? $parcelTypeClass::UNKNOWN;
+                        @endphp
+                        <div data-parcel-type="{{ $parcelKey }}"
+                             style="display: inline-flex; align-items: center; gap: .625rem; justify-self: start; padding: .5rem .875rem; border-radius: .625rem; color: #fff; background: {{ $parcelTypeClass::hex($parcelKey) }};">
+                            <x-filament::icon :icon="$parcelTypeClass::icon($parcelKey)" style="width: 1.75rem; height: 1.75rem; flex: none;" />
+                            <span style="font-size: 1.25rem; line-height: 1.75rem; font-weight: 800; letter-spacing: .03em;">{{ $parcelTypeClass::label($parcelKey) }}</span>
+                        </div>
+                    @elseif($packageTypeName)
+                        <x-filament::badge color="gray" icon="heroicon-m-cube" size="lg">
+                            {{ $packageTypeName }}
+                        </x-filament::badge>
+                    @endif
+
                     <div class="flex flex-wrap items-center gap-2">
                         @if($veloydOrder->is_return)
                             <x-filament::badge color="warning" icon="heroicon-m-arrow-uturn-left">

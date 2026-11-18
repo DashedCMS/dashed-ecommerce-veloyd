@@ -2,6 +2,19 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
+## Unreleased
+
+<!-- TODO bij release: composer-constraint op dashed/dashed-ecommerce-core ophogen naar de versie met Classes\ParcelType (Veloyd werkt ook zonder, dan zonder verzendvorm). -->
+
+### Added
+- Verzendvorm (ec-core `ParcelType`): Veloyd registreert de productgroep-berekening (`veloyd-package-type`, inclusief de drempel per regio) met het standaard pakkettype van het land als terugval. Bestellingen zonder label krijgen zo in het CMS en de app een verzendvorm in plaats van "ONBEKEND".
+- Het labeloverzicht bij een bestelling toont per label groot en in kleur het pakkettype (PAKKET, BRIEVENBUS, BRIEF, ...), met dezelfde namen en kleuren als de verzendvorm in ec-core.
+
+### Changed
+- Klaarzetten voor Veloyd (`connectOrderWithCarrier`) volgt de verzendvorm van de order, zodat een override van de webshop (bijvoorbeeld een brievenbusregel) voorgaat op de productgroepen.
+- Een label zonder gekozen pakkettype (app, automatisering, `createLabelForOrder`) en het formulier "Verzendlabel aanmaken" zonder klaargezet label gebruiken de verzendvorm van de order in plaats van altijd het standaard pakkettype van het land.
+- Een productgroep zonder eigen Veloyd-pakkettype breekt de berekening niet meer af.
+
 ## v4.18.0 - 2026-11-17
 
 ### Added

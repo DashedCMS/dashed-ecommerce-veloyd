@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Dashed\DashedCore\Models\Customsetting;
 use Dashed\DashedEcommerceCore\Models\Order;
 use Dashed\DashedEcommerceCore\Models\OrderLog;
+use Dashed\DashedEcommerceCore\Classes\ParcelType;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 use Dashed\DashedEcommerceCore\Models\OrderTrackAndTrace;
 use Dashed\DashedEcommerceVeloyd\Jobs\SyncVeloydTrackAndTraceJob;
@@ -84,20 +85,19 @@ class Veloyd
     public static function connectOrderWithCarrier(Order $order)
     {
         if (self::isConnected($order->site_id) && ! $order->veloydOrders()->count()) {
-            $packageTypeIds = [];
-
-            foreach ($order->orderProducts as $orderProduct) {
-                if ($orderProduct->product) {
-                    $packageTypeIds[] = $orderProduct->product->productGroup->contentBlocks['veloyd-package-type']
-                        ?? Customsetting::get('veloyd_default_package_type_' . $order->countryIsoCode, $order->site_id);
-                }
-            }
+            // Verzendvorm: app-override (bv. Lovora's brievenbusregel) gaat voor op de
+            // productgroep-berekening. Zonder ParcelType (oudere ec-core) of zonder code
+            // (ophalen/digitaal/onbekend) blijft het oude gedrag staan.
+            $packageType = self::parcelTypeCode($order)
+                ?? self::computePackageTypeForOrder($order)
+                ?? self::getBiggestPackageNeededByIds((string) $order->countryIsoCode, [], (string) $order->site_id);
 
             $order->veloydOrders()->create([
                 'carrier' => Customsetting::get('veloyd_default_carrier_' . $order->countryIsoCode, $order->site_id, 'PostNL'),
-                'package_type' => self::getBiggestPackageNeededByIds($order->countryIsoCode, $packageTypeIds, $order->site_id),
+                'package_type' => $packageType,
                 'delivery_type' => Customsetting::get('veloyd_default_delivery_type_' . $order->countryIsoCode, $order->site_id, 'Standaard'),
             ]);
+            self::flushParcelType();
 
             $orderLog = new OrderLog();
             $orderLog->order_id = $order->id;
@@ -636,7 +636,7 @@ class Veloyd
 
         $attrs = [
             'carrier' => $overrides['carrier'] ?? Customsetting::get("veloyd_default_carrier_{$country}", null, 'PostNL'),
-            'package_type' => $overrides['package_type'] ?? Customsetting::get("veloyd_default_package_type_{$country}", null, 1),
+            'package_type' => $overrides['package_type'] ?? self::defaultPackageTypeFor($order),
             'delivery_type' => $overrides['delivery_type'] ?? Customsetting::get("veloyd_default_delivery_type_{$country}", null, 'Standaard'),
             'is_return' => false,
             'options' => self::sanitizeExtraOptions($overrides),
@@ -652,6 +652,7 @@ class Veloyd
         } else {
             $veloydOrder = $order->veloydOrders()->create($attrs);
         }
+        self::flushParcelType();
 
         return self::createConceptAndLabelForOrder($veloydOrder);
     }
@@ -1109,25 +1110,111 @@ class Veloyd
 
     public static function getBiggestPackageNeededByIds(string $region, array $packageTypeIds, string $siteId): int
     {
-        if ((count($packageTypeIds) >= Customsetting::get('veloyd_minimum_product_count_' . $region, $siteId))
-            && Customsetting::get('veloyd_minimum_product_count_package_type_' . $region, $siteId)) {
-            return (int) Customsetting::get('veloyd_minimum_product_count_package_type_' . $region, $siteId);
+        return self::pickBiggestPackageType(
+            $packageTypeIds,
+            Customsetting::get('veloyd_minimum_product_count_' . $region, $siteId),
+            Customsetting::get('veloyd_minimum_product_count_package_type_' . $region, $siteId),
+        );
+    }
+
+    /**
+     * Pure kern van getBiggestPackageNeededByIds(): vanaf de drempel het
+     * drempel-pakkettype, anders het "grootste" type uit de lijst.
+     */
+    public static function pickBiggestPackageType(array $packageTypeIds, mixed $minimumProductCount, mixed $minimumProductCountPackageType): int
+    {
+        if ((count($packageTypeIds) >= $minimumProductCount) && $minimumProductCountPackageType) {
+            return (int) $minimumProductCountPackageType;
         }
 
-        if (in_array(5, $packageTypeIds)) {
-            return 5;
-        } elseif (in_array(4, $packageTypeIds)) {
-            return 4;
-        } elseif (in_array(1, $packageTypeIds)) {
-            return 1;
-        } elseif (in_array(6, $packageTypeIds)) {
-            return 6;
-        } elseif (in_array(2, $packageTypeIds)) {
-            return 2;
-        } elseif (in_array(3, $packageTypeIds)) {
-            return 3;
-        } else {
-            return 3;
+        foreach ([5, 4, 1, 6, 2, 3] as $packageType) {
+            if (in_array($packageType, $packageTypeIds)) {
+                return $packageType;
+            }
+        }
+
+        return 3;
+    }
+
+    /**
+     * Pakkettype van een order volgens de productgroepen (`veloyd-package-type`,
+     * inclusief de drempel per regio), met het landstandaard-pakkettype als
+     * terugval. Geregistreerd als ParcelType::computeUsing(): roept ParcelType
+     * daarom zelf nooit aan (anders recursie).
+     */
+    public static function computePackageTypeForOrder(Order $order): ?int
+    {
+        $region = (string) $order->countryIsoCode;
+        $siteId = $order->site_id;
+
+        $groupPackageTypes = [];
+        foreach ($order->orderProducts as $orderProduct) {
+            if ($orderProduct->product) {
+                $groupPackageTypes[] = $orderProduct->product->productGroup?->contentBlocks['veloyd-package-type'] ?? null;
+            }
+        }
+
+        return self::packageTypeFromGroupTypes(
+            $groupPackageTypes,
+            Customsetting::get('veloyd_default_package_type_' . $region, $siteId),
+            Customsetting::get('veloyd_minimum_product_count_' . $region, $siteId),
+            Customsetting::get('veloyd_minimum_product_count_package_type_' . $region, $siteId),
+        );
+    }
+
+    /**
+     * Pure kern van computePackageTypeForOrder(). `$groupPackageTypes` bevat per
+     * productregel het pakkettype van de productgroep (null/leeg = geen keuze, dan
+     * telt de landstandaard). Zonder productregels: de landstandaard, of null.
+     */
+    public static function packageTypeFromGroupTypes(array $groupPackageTypes, mixed $countryDefault, mixed $minimumProductCount, mixed $minimumProductCountPackageType): ?int
+    {
+        $countryDefault = filled($countryDefault) ? (int) $countryDefault : null;
+
+        if ($groupPackageTypes === []) {
+            return $countryDefault;
+        }
+
+        $packageTypeIds = array_map(
+            fn ($packageType) => filled($packageType) ? (int) $packageType : $countryDefault,
+            $groupPackageTypes,
+        );
+
+        return self::pickBiggestPackageType($packageTypeIds, $minimumProductCount, $minimumProductCountPackageType);
+    }
+
+    /**
+     * Standaard pakkettype voor een nieuw label: de verzendvorm van de order
+     * (ParcelType, als ec-core die kent), anders de landstandaard.
+     */
+    public static function defaultPackageTypeFor(Order $order): int
+    {
+        return self::defaultPackageTypeFromCode(
+            self::parcelTypeCode($order),
+            Customsetting::get('veloyd_default_package_type_' . $order->countryIsoCode, null, 1),
+        );
+    }
+
+    public static function defaultPackageTypeFromCode(?int $parcelTypeCode, mixed $countryDefault): int
+    {
+        return $parcelTypeCode ?? (filled($countryDefault) ? (int) $countryDefault : 1);
+    }
+
+    /** Carrier code van de verzendvorm (ParcelType), null op een oudere ec-core of zonder code. */
+    public static function parcelTypeCode(Order $order): ?int
+    {
+        if (! class_exists(ParcelType::class)) {
+            return null;
+        }
+
+        return ParcelType::carrierCodeFor($order);
+    }
+
+    /** ParcelType memoiseert per order: na het aanmaken/wijzigen van een label opnieuw laten bepalen. */
+    public static function flushParcelType(): void
+    {
+        if (class_exists(ParcelType::class)) {
+            ParcelType::flush();
         }
     }
 

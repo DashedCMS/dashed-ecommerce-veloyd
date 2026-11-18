@@ -6,6 +6,8 @@ use Livewire\Livewire;
 use Spatie\LaravelPackageTools\Package;
 use Illuminate\Console\Scheduling\Schedule;
 use Dashed\DashedEcommerceCore\Models\Order;
+use Dashed\DashedEcommerceVeloyd\Classes\Veloyd;
+use Dashed\DashedEcommerceCore\Classes\ParcelType;
 use Dashed\DashedEcommerceVeloyd\Models\VeloydOrder;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Dashed\DashedEcommerceVeloyd\Commands\CheckVeloydOrders;
@@ -29,6 +31,12 @@ class DashedEcommerceVeloydServiceProvider extends PackageServiceProvider
         Order::addDynamicRelation('veloydOrders', function (Order $model) {
             return $model->hasMany(VeloydOrder::class);
         });
+
+        // Verzendvorm (ec-core ParcelType): Veloyd levert de productgroep-berekening
+        // met de landstandaard als terugval. Oudere ec-core kent de klasse niet.
+        if (class_exists(ParcelType::class)) {
+            ParcelType::computeUsing(fn (Order $order): ?int => Veloyd::computePackageTypeForOrder($order));
+        }
 
         \Illuminate\Support\Facades\Event::listen(
             \Dashed\DashedEcommerceCore\Events\Orders\OrderReturnApprovedEvent::class,

@@ -59,7 +59,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
 
                 $veloydOrder = $this->order->veloydOrders()->where('label_printed', 0)->first();
 
-                $data['package_type'] = $veloydOrder->package_type ?? Customsetting::get("veloyd_default_package_type_{$this->order->countryIsoCode}", null, 1);
+                $data['package_type'] = $veloydOrder->package_type ?? Veloyd::defaultPackageTypeFor($this->order);
                 $data['delivery_type'] = $veloydOrder->delivery_type ?? Customsetting::get("veloyd_default_delivery_type_{$this->order->countryIsoCode}", null, 'Standaard');
                 $data['carrier'] = $veloydOrder->carrier ?? Customsetting::get("veloyd_default_carrier_{$this->order->countryIsoCode}", null, 'PostNL');
 
@@ -131,6 +131,7 @@ class ShowPushToVeloydOrder extends Component implements HasSchemas, HasActions
                         'options' => $options,
                     ]);
                 }
+                Veloyd::flushParcelType();
 
                 try {
                     $result = Veloyd::createConceptAndLabelForOrder($veloydOrder);
