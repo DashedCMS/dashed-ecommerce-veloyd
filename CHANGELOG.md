@@ -2,9 +2,9 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
-## Unreleased
+## v4.19.0 - 2026-11-18
 
-<!-- TODO bij release: composer-constraint op dashed/dashed-ecommerce-core ophogen naar de versie met Classes\ParcelType (Veloyd werkt ook zonder, dan zonder verzendvorm). -->
+Vereist voor de verzendvorm dashed-ecommerce-core v4.208.0 of nieuwer; met een oudere ec-core werkt alles zoals in v4.18.0.
 
 ### Added
 - Verzendvorm (ec-core `ParcelType`): Veloyd registreert de productgroep-berekening (`veloyd-package-type`, inclusief de drempel per regio) met het standaard pakkettype van het land als terugval. Bestellingen zonder label krijgen zo in het CMS en de app een verzendvorm in plaats van "ONBEKEND". Alleen voor sites met een Veloyd API key; sites zonder Veloyd krijgen van dit pakket geen verzendvorm.
