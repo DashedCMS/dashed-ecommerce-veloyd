@@ -1119,11 +1119,16 @@ class Veloyd
 
     /**
      * Pure kern van getBiggestPackageNeededByIds(): vanaf de drempel het
-     * drempel-pakkettype, anders het "grootste" type uit de lijst.
+     * drempel-pakkettype, anders het "grootste" type uit de lijst. Staan alle
+     * regels op brievenbus (2), dan telt de drempel niet: die bestelling blijft
+     * een brievenbuspakket, hoeveel regels het ook zijn.
      */
     public static function pickBiggestPackageType(array $packageTypeIds, mixed $minimumProductCount, mixed $minimumProductCountPackageType): int
     {
-        if ((count($packageTypeIds) >= $minimumProductCount) && $minimumProductCountPackageType) {
+        $allMailbox = $packageTypeIds !== []
+            && array_filter($packageTypeIds, fn ($packageType) => (int) $packageType !== 2) === [];
+
+        if (! $allMailbox && (count($packageTypeIds) >= $minimumProductCount) && $minimumProductCountPackageType) {
             return (int) $minimumProductCountPackageType;
         }
 

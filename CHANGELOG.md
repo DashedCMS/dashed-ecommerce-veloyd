@@ -2,6 +2,11 @@
 
 All notable changes to `dashed-ecommerce-veloyd` will be documented in this file.
 
+## v4.19.1 - 2026-11-20
+
+### Fixed
+- De drempel "vanaf X producten dit pakkettype" geldt niet meer als alle regels van een bestelling op Brievenbus staan. Twee brievenbusproducten werden zo een Pakket; zo'n bestelling blijft nu een brievenbuspakket. Zit er één regel tussen die geen brievenbus is (ook een productgroep zonder eigen type die op een land-standaard Pakket valt), dan telt de drempel gewoon.
+
 ## v4.19.0 - 2026-11-18
 
 Vereist voor de verzendvorm dashed-ecommerce-core v4.208.0 of nieuwer; met een oudere ec-core werkt alles zoals in v4.18.0.

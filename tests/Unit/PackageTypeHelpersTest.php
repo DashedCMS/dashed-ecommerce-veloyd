@@ -27,11 +27,22 @@ class PackageTypeHelpersTest extends TestCase
 
     public function test_pick_biggest_applies_the_product_count_threshold(): void
     {
-        $this->assertSame(1, Veloyd::pickBiggestPackageType([2, 2, 2], 3, 1));
-        $this->assertSame(1, Veloyd::pickBiggestPackageType([2, 2, 2], '3', '1'));
-        $this->assertSame(2, Veloyd::pickBiggestPackageType([2, 2], 3, 1));
+        $this->assertSame(1, Veloyd::pickBiggestPackageType([2, 3, 2], 3, 1));
+        $this->assertSame(1, Veloyd::pickBiggestPackageType([2, '3', 2], '3', '1'));
+        $this->assertSame(2, Veloyd::pickBiggestPackageType([2, 3], 3, 1));
         // Without a threshold package type the threshold is ignored.
         $this->assertSame(2, Veloyd::pickBiggestPackageType([2, 2, 2], 3, null));
+    }
+
+    public function test_threshold_does_not_apply_when_every_line_is_mailbox(): void
+    {
+        $this->assertSame(2, Veloyd::pickBiggestPackageType([2, 2], 2, 1));
+        $this->assertSame(2, Veloyd::pickBiggestPackageType(['2', '2', '2'], '2', '1'));
+        // One line that is not mailbox brings the threshold back.
+        $this->assertSame(1, Veloyd::pickBiggestPackageType([2, 3], 2, 1));
+        // A line without its own type takes the country default (here package), so the threshold applies.
+        $this->assertSame(1, Veloyd::packageTypeFromGroupTypes([2, null], 1, 2, 1));
+        $this->assertSame(2, Veloyd::packageTypeFromGroupTypes([2, 2], 1, 2, 1));
     }
 
     public function test_group_types_fall_back_to_the_country_default(): void
@@ -40,7 +51,7 @@ class PackageTypeHelpersTest extends TestCase
         $this->assertSame(1, Veloyd::packageTypeFromGroupTypes([2, null], 1, null, null));
         $this->assertSame(2, Veloyd::packageTypeFromGroupTypes([2, ''], '2', null, null));
         $this->assertSame(2, Veloyd::packageTypeFromGroupTypes(['2', '2'], 1, null, null));
-        $this->assertSame(1, Veloyd::packageTypeFromGroupTypes([2, 2, 2], 1, 3, 1));
+        $this->assertSame(2, Veloyd::packageTypeFromGroupTypes([2, 2, 2], 1, 3, 1));
     }
 
     public function test_order_without_product_lines_gets_the_country_default_or_null(): void
